@@ -1,6 +1,9 @@
 import os
 import speech_recognition as sr
+import time
 from zhipuai import ZhipuAI
+from video_generator import generate_video
+from voice_generator import generate_voice, list_available_speakers
 
 def chat_response(data):
     """
@@ -20,11 +23,40 @@ def chat_response(data):
     output_text = "./static/text/output.txt"
     api_key = "31af4e1567ad48f49b6d7b914b4145fb.MDVLvMiePGYLRJ7M"
     model = "glm-4-plus"
-    get_ai_response(input_text, output_text, api_key, model)
+    ai_response_text = get_ai_response(input_text, output_text, api_key, model)
 
+    # 读取AI回复文本
+    with open(output_text, 'r', encoding='utf-8') as f:
+        ai_response_text = f.read().strip()
+
+    print(f"[backend.chat_engine] AI回复文本: {ai_response_text}")
+
+    # ToDo : 增加用户选择语音的选项（前端需要实现）
+    # 列出可用的语音
+    available_speakers = list_available_speakers()
+    print(f"[backend.chat_engine] 可用说话人: {available_speakers}")
+
+    # 默认第一个
+    speaker_id = available_speakers[0]
+
+    # 如果用户选择了语音
+    if data.get('speaker_id', None) and data['speaker_id'] in available_speakers:
+        speaker_id = data.get('speaker_id')
+
+    print(f"[backend.chat_engine] 使用说话人: {speaker_id}")
+
+    # OpenVoice语音合成
+    voice_path = generate_voice(ai_response_text, speaker_id)
+
+    print(f"[backend.chat_engine] OpenVoice语音合成完成: {voice_path}")
+
+    # 调用ER-NeRF生成视频 ToDo:EN-NeRF待实现
+    video_path = generate_video(voice_path)
     
-    video_path = os.path.join("static", "videos", "chat_response.mp4")
+    # video_path = os.path.join("static", "videos", "chat_response.mp4")
+
     print(f"[backend.chat_engine] 生成视频路径：{video_path}")
+
     return video_path
 
 def audio_to_text(input_audio, input_text):
