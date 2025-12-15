@@ -2,6 +2,10 @@ import os
 import time
 import subprocess
 import shutil
+import voice_generator
+from EchOfU.backend.voice_generator import OpenVoiceService
+from voice_generator import OpenVoiceService
+
 
 def generate_video(data):
     """
@@ -62,6 +66,56 @@ def generate_video(data):
                 
                 return os.path.join("static", "videos", "out.mp4")
             
+        except subprocess.CalledProcessError as e:
+            print(f"[backend.video_generator] 命令执行失败: {e}")
+            print("错误输出:", e.stderr)
+            return os.path.join("static", "videos", "out.mp4")
+        except Exception as e:
+            print(f"[backend.video_generator] 其他错误: {e}")
+            return os.path.join("static", "videos", "out.mp4")
+    elif data['model_name'] == "ER-NeRF":
+        try:
+
+            ov=OpenVoiceService
+
+            # ToDo : 实现语音特征提取逻辑
+
+            ov.extract_trait_from_audio(data)
+
+            #ToDo : 实现语音克隆
+
+            ov.generate_speech()
+
+            #Todo : 实现语音->视频
+
+
+
+            # 文件原路径与目的路径
+            model_dir_name = os.path.basename(data['model_param'])
+            source_path = os.path.join("SyncTalk", "model", model_dir_name, "results", "test_audio.mp4")
+            audio_name = os.path.splitext(os.path.basename(data['ref_audio']))[0]
+            video_filename = f"{model_dir_name}_{audio_name}.mp4"
+            destination_path = os.path.join("static", "videos", video_filename)
+            # 检查文件是否存在
+            if os.path.exists(source_path):
+                shutil.copy(source_path, destination_path)
+                print(f"[backend.video_generator] 视频生成完成，路径：{destination_path}")
+                return destination_path
+            else:
+                print(f"[backend.video_generator] 视频文件不存在: {source_path}")
+                # 尝试查找任何新生成的mp4文件
+                results_dir = os.path.join("SyncTalk", "model", model_dir_name, "results")
+                if os.path.exists(results_dir):
+                    mp4_files = [f for f in os.listdir(results_dir) if f.endswith('.mp4')]
+                    if mp4_files:
+                        latest_file = max(mp4_files, key=lambda f: os.path.getctime(os.path.join(results_dir, f)))
+                        source_path = os.path.join(results_dir, latest_file)
+                        shutil.copy(source_path, destination_path)
+                        print(f"[backend.video_generator] 找到最新视频文件: {destination_path}")
+                        return destination_path
+
+                return os.path.join("static", "videos", "out.mp4")
+
         except subprocess.CalledProcessError as e:
             print(f"[backend.video_generator] 命令执行失败: {e}")
             print("错误输出:", e.stderr)

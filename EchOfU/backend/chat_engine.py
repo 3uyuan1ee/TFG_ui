@@ -19,6 +19,8 @@ def chat_response(data):
     input_text = "./static/text/input.txt"
     audio_to_text(input_audio, input_text)
 
+    # ToDo : 这里考虑一下要不要增加一个配置管理，管理一下api这些
+
     # 大模型回答
     output_text = "./static/text/output.txt"
     api_key = "31af4e1567ad48f49b6d7b914b4145fb.MDVLvMiePGYLRJ7M"
@@ -30,6 +32,8 @@ def chat_response(data):
         ai_response_text = f.read().strip()
 
     print(f"[backend.chat_engine] AI回复文本: {ai_response_text}")
+
+    # ToDo : 看老师的前端设计，这里应该增加一个语音克隆选项（也就是说用户可以选择之前已经克隆过的语音/重新克隆语音/克隆自己的语音），这里需要设计一下
 
     # ToDo : 增加用户选择语音的选项（前端需要实现）
     # 列出可用的语音
