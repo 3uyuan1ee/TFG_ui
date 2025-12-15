@@ -1,6 +1,9 @@
 import os
 import time
 import json
+from datetime import datetime
+import subprocess
+import json
 import torch
 from openvoice.api import BaseSpeakerTTS, ToneColorConverter
 from openvoice import se_extractor
@@ -136,7 +139,7 @@ class OpenVoiceService:
             print(f"[OpenVoice] 保存说话人特征失败: {e}")
 
     def extract_and_save_speaker_feature(self, speaker_id, reference_audio):
-        """提取并保存说话人特征（供model_trainer调用）"""
+        """提取并保存说话人特征（public : 供外部函数调用）"""
         try:
             if not self.tone_converter:
                 print(f"[OpenVoice] 转换器未初始化")
@@ -151,7 +154,7 @@ class OpenVoiceService:
                 target_dir="processed"
             )
 
-            # get_se返回元组(se_tensor, audio_name)，我们只需要张量部分
+            # get_se返回元组(se_tensor, audio_name) 只需要张量部分
             if isinstance(target_se_result, tuple):
                 target_se = target_se_result[0]
             else:
@@ -225,7 +228,7 @@ class OpenVoiceService:
                 print(f"[OpenVoice] 未找到基础说话人特征: {source_se_path}")
                 return None
 
-            # 3. 使用缓存的特征进行音色转换（根据V2官方示例）
+            # 3. 使用缓存的特征进行音色转换
             encode_message = "@MyShell"  # V2版本的编码消息
             self.tone_converter.convert(
                 audio_src_path=temp_audio,
@@ -493,7 +496,7 @@ def generate_voice(text, speaker_id=None):
 
 def extract_speaker_feature(speaker_id, reference_audio):
     """
-    提取说话人特征（供model_trainer调用）
+    提取说话人特征
 
     Args:
         speaker_id (str): 说话人唯一标识
@@ -522,3 +525,107 @@ def list_available_speakers():
     except Exception as e:
         print(f"[OpenVoice] 列出说话人失败: {e}")
         return []
+
+def extract_trait_from_audio(data):
+    try:
+        """
+        提取说话人特征(最终接口）
+    
+        Args:
+            speaker_id (str): 说话人唯一标识
+            reference_audio (str): 参考音频文件路径
+    
+        Returns:
+            bool: 成功返回True，失败返回False
+        """
+        video_path = data['ref_video']
+
+        print("[backend.model_trainer] 开始OpenVoice语音特征提取...")
+
+        if video_path.endswith(".mp4"):
+            # 从视频中提取音频
+            extracted_audio = extract_audio_from_video(video_path)
+
+        # ToDo : 可以让用户自定义语音名字 （需要在前端加上speaker_id选项)
+        speaker_id=data["speaker_id"]
+        if speaker_id:
+            print()
+        else:
+            # 生成的说话人ID
+            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+            speaker_id = f"user_{timestamp}"
+
+        # 提取并保存说话人特征
+        success = extract_speaker_feature(speaker_id, extracted_audio)
+
+        if success:
+            print(f"[backend.model_trainer] OpenVoice说话人特征提取成功: {speaker_id}")
+
+            # 保存训练信息
+            model_info = {
+                "model_type": "OpenVoice",
+                "speaker_id": speaker_id,
+                "reference_video": video_path,
+                "extracted_audio": extracted_audio,
+                "training_time": datetime.now().isoformat(),
+                "status": "completed"
+            }
+
+            info_path = f"models/OpenVoice/{speaker_id}_info.json"
+            with open(info_path, 'w', encoding='utf-8') as f:
+                json.dump(model_info, f, indent=2, ensure_ascii=False)
+
+            print(f"[backend.model_trainer] 模型信息已保存: {info_path}")
+
+        else:
+            print("[backend.model_trainer] OpenVoice说话人特征提取失败")
+
+    except Exception as e:
+        print(f"[backend.model_trainer] OpenVoice训练失败: {e}")
+
+
+def extract_audio_from_video(video_path):
+    """
+    从视频中提取音频
+    """
+    try:
+        # 确保输出目录存在
+        os.makedirs("static/audios", exist_ok=True)
+
+        # 生成音频文件名
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        audio_output = f"static/audios/extracted_{timestamp}.wav"
+
+        # 使用ffmpeg提取音频
+        cmd = [
+            "ffmpeg", "-i", video_path,
+            "-vn",  # 禁用视频
+            "-acodec", "pcm_s16le",  # 音频编码
+            "-ar", "16000",  # 采样率
+            "-ac", "1",  # 单声道
+            "-y",  # 覆盖输出文件
+            audio_output
+        ]
+
+        print(f"[backend.model_trainer] 提取音频命令: {' '.join(cmd)}")
+
+        result = subprocess.run(
+            cmd,
+            capture_output=True,
+            text=True,
+            timeout=60  # 1分钟超时
+        )
+
+        if result.returncode == 0:
+            print(f"[backend.model_trainer] 音频提取成功: {audio_output}")
+            return audio_output
+        else:
+            print(f"[backend.model_trainer] 音频提取失败: {result.stderr}")
+            return None
+
+    except subprocess.TimeoutExpired:
+        print("[backend.model_trainer] 音频提取超时")
+        return None
+    except Exception as e:
+        print(f"[backend.model_trainer] 音频提取异常: {e}")
+        return None
