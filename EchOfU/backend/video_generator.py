@@ -3,6 +3,8 @@ import time
 import subprocess
 import shutil
 import voice_generator
+from EchOfU.MeloTTS.test.test_base_model_tts_package_from_S3 import speaker
+from EchOfU.OpenVoice.demo_part3 import speaker_id
 from EchOfU.backend.voice_generator import OpenVoiceService
 from voice_generator import OpenVoiceService
 
@@ -78,13 +80,24 @@ def generate_video(data):
 
             ov=OpenVoiceService
 
-            # ToDo : 实现语音特征提取逻辑
 
+            # 如果要实现缓存，speaker_id需要是唯一的，不能多个克隆对象都用一个speaker_id,这样会被覆盖
+            speaker_id=1;
+            text=data['text']
+
+
+            # ToDo : 可以设计与前端的同学设计一个单独的语音特征提取页面，这样就不用每次都再进行一次提取，只用选择speaker_id进行克隆即可
+            # 提供了两种接口都可以调用
+            ov.extract_and_save_speaker_feature(speaker_id,data['ref_audio'])
+
+            # 如果要使用这种接口，一定要保证data中有"speaker_id这一项
             ov.extract_trait_from_audio(data)
 
-            #ToDo : 实现语音克隆
+            #实现语音克隆
 
-            ov.generate_speech()
+            #这里一定要有speaker_id，否则就会导致克隆失败，因为不知道要克隆哪个speaker的特征
+            ov.generate_speech(text, speaker_id)
+
 
             #Todo : 实现语音->视频
 
