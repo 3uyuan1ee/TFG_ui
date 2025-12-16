@@ -1,12 +1,134 @@
 import os
 import time
 import json
-from datetime import datetime
 import subprocess
-import json
 import torch
+from datetime import datetime
 from openvoice.api import BaseSpeakerTTS, ToneColorConverter
 from openvoice import se_extractor
+
+
+class PathManager:
+    """路径管理器，统一处理所有路径相关逻辑"""
+
+    def __init__(self):
+        self.project_root = self._get_project_root()
+
+    def _get_project_root(self):
+        """获取项目根目录路径"""
+        current_dir = os.getcwd()
+        return "." if current_dir.endswith("/EchOfU") else "EchOfU"
+
+    def get_model_path(self, *path_parts):
+        """获取模型相关路径"""
+        return os.path.join(self.project_root, *path_parts)
+
+    def get_openvoice_v2_path(self, *path_parts):
+        """获取OpenVoice V2相关路径"""
+        return self.get_model_path("OpenVoice/checkpoints_v2", *path_parts)
+
+    def get_speaker_features_path(self):
+        """获取说话人特征文件路径"""
+        return "models/OpenVoice/speaker_features.json"
+
+    def get_output_voice_path(self, timestamp):
+        """生成输出语音文件路径"""
+        return f"static/voices/generated_{timestamp}.wav"
+
+
+class ModelDownloader:
+    """模型下载器，处理模型文件的下载和解压"""
+
+    @staticmethod
+    def download_with_progress(url, output_path):
+        """文件下载进度显示"""
+        import requests
+
+        try:
+            response = requests.get(url, stream=True)
+            response.raise_for_status()
+
+            total_size = int(response.headers.get('content-length', 0))
+            downloaded = 0
+
+            with open(output_path, 'wb') as f:
+                for chunk in response.iter_content(chunk_size=8192):
+                    f.write(chunk)
+                    downloaded += len(chunk)
+
+                    if total_size > 0:
+                        progress = (downloaded / total_size) * 100
+                        print(f"\r[OpenVoice] 下载进度: {progress:.1f}%", end='', flush=True)
+
+            print()  # 换行
+
+        except Exception as e:
+            print(f"[OpenVoice] 下载失败: {e}")
+            raise
+
+    @staticmethod
+    def extract_zip_file(zip_path, extract_dir):
+        """解压zip文件"""
+        import zipfile
+
+        try:
+            with zipfile.ZipFile(zip_path, 'r') as zip_ref:
+                zip_ref.extractall(extract_dir)
+
+            print(f"[OpenVoice] 解压完成: {zip_path} -> {extract_dir}")
+
+        except Exception as e:
+            print(f"[OpenVoice] 解压失败: {e}")
+            raise
+
+
+class AudioProcessor:
+    """音频处理器，处理音频相关的操作"""
+
+    @staticmethod
+    def extract_audio_from_video(video_path):
+        """从视频中提取音频"""
+        try:
+            # 确保输出目录存在
+            os.makedirs("static/audios", exist_ok=True)
+
+            # 生成音频文件名
+            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+            audio_output = f"static/audios/extracted_{timestamp}.wav"
+
+            # 使用ffmpeg提取音频
+            cmd = [
+                "ffmpeg", "-i", video_path,
+                "-vn",  # 禁用视频
+                "-acodec", "pcm_s16le",  # 音频编码
+                "-ar", "16000",  # 采样率
+                "-ac", "1",  # 单声道
+                "-y",  # 覆盖输出文件
+                audio_output
+            ]
+
+            print(f"[backend.model_trainer] 提取音频命令: {' '.join(cmd)}")
+
+            result = subprocess.run(
+                cmd,
+                capture_output=True,
+                text=True,
+                timeout=60  # 1分钟超时
+            )
+
+            if result.returncode == 0:
+                print(f"[backend.model_trainer] 音频提取成功: {audio_output}")
+                return audio_output
+            else:
+                print(f"[backend.model_trainer] 音频提取失败: {result.stderr}")
+                return None
+
+        except subprocess.TimeoutExpired:
+            print("[backend.model_trainer] 音频提取超时")
+            return None
+        except Exception as e:
+            print(f"[backend.model_trainer] 音频提取异常: {e}")
+            return None
 
 class OpenVoiceService:
     _instance = None
@@ -36,16 +158,8 @@ class OpenVoiceService:
             # 设置设备
             self.device = "cuda" if torch.cuda.is_available() else "cpu"
 
-            # 获取项目根目录路径
-            current_dir = os.getcwd()
-            if current_dir.endswith("/EchOfU"):
-                # 如果当前在EchOfU目录下，使用相对路径
-                project_root = "."
-            else:
-                # 如果在其他目录，使用绝对路径
-                project_root = "EchOfU"
-
-            # 配置路径 - 使用V2版本
+            # 获取项目根目录路径并配置模型路径
+            project_root = self._get_project_root()
             config_path = os.path.join(project_root, "OpenVoice/checkpoints_v2/converter/config.json")
             base_ckpt = os.path.join(project_root, "OpenVoice/checkpoints_v2/converter/checkpoint.pth")  # V2版本使用checkpoint.pth
 
@@ -67,6 +181,11 @@ class OpenVoiceService:
             print(f"[OpenVoice] 模型初始化失败: {e}")
             # 如果模型文件不存在，返回默认状态
             self.fallback_to_default_state()
+
+    def _get_project_root(self):
+        """获取项目根目录路径 - 统一路径计算逻辑"""
+        current_dir = os.getcwd()
+        return "." if current_dir.endswith("/EchOfU") else "EchOfU"
 
     def fallback_to_default_state(self):
         """模型加载失败时的默认状态"""
@@ -213,13 +332,7 @@ class OpenVoiceService:
                 return None
 
             # 2. 加载基础说话人特征
-            # 获取项目根目录路径
-            current_dir = os.getcwd()
-            if current_dir.endswith("/EchOfU"):
-                project_root = "."
-            else:
-                project_root = "EchOfU"
-
+            project_root = self._get_project_root()
             source_se_path = os.path.join(project_root, "OpenVoice/checkpoints_v2/base_speakers/ses", f"{base_speaker_key.lower()}.pth")
             if os.path.exists(source_se_path):
                 source_se = torch.load(source_se_path, map_location=self.device)
@@ -345,13 +458,7 @@ class OpenVoiceService:
 
     def ensure_directories(self):
         """确保必要目录存在"""
-        # 获取项目根目录路径
-        current_dir = os.getcwd()
-        if current_dir.endswith("/EchOfU"):
-            project_root = "."
-        else:
-            project_root = "EchOfU"
-
+        project_root = self._get_project_root()
         dirs = [
             os.path.join(project_root, "OpenVoice/checkpoints_v2"),
             os.path.join(project_root, "OpenVoice/checkpoints/base_speakers"),
@@ -364,13 +471,7 @@ class OpenVoiceService:
 
     def check_models_exist(self):
         """检查模型文件是否存在"""
-        # 获取项目根目录路径
-        current_dir = os.getcwd()
-        if current_dir.endswith("/EchOfU"):
-            project_root = "."
-        else:
-            project_root = "EchOfU"
-
+        project_root = self._get_project_root()
         required_files = [
             os.path.join(project_root, "OpenVoice/checkpoints_v2/converter/config.json"),
             os.path.join(project_root, "OpenVoice/checkpoints_v2/converter/checkpoint.pth")
@@ -390,24 +491,17 @@ class OpenVoiceService:
             # V2模型下载地址
             zip_url = "https://myshell-public-repo-host.s3.amazonaws.com/openvoice/checkpoints_v2_0417.zip"
 
-            # 获取当前工作目录和项目根目录
-            current_dir = os.getcwd()
-            if current_dir.endswith("/EchOfU"):
-                # 如果当前在EchOfU目录下，使用相对路径
-                project_root = "."
-            else:
-                # 如果在其他目录，使用绝对路径
-                project_root = "EchOfU"
-
+            # 获取项目根目录路径
+            project_root = self._get_project_root()
             zip_path = os.path.join(project_root, "OpenVoice/checkpoints_v2_0417.zip")
             extract_dir = os.path.join(project_root, "OpenVoice/")
 
             print(f"[OpenVoice] 下载V2检查点压缩包...")
-            self.download_with_progress(zip_url, zip_path)
+            ModelDownloader.download_with_progress(zip_url, zip_path)
 
             # 解压压缩包
             print(f"[OpenVoice] 解压检查点文件...")
-            self.extract_zip_file(zip_path, extract_dir)
+            ModelDownloader.extract_zip_file(zip_path, extract_dir)
 
             # 清理压缩包文件
             if os.path.exists(zip_path):
@@ -418,46 +512,6 @@ class OpenVoiceService:
 
         except Exception as e:
             print(f"[OpenVoice] 模型下载失败: {e}")
-            raise
-
-    def download_with_progress(self, url, output_path):
-        """文件下载进度显示"""
-        import requests
-
-        try:
-            response = requests.get(url, stream=True)
-            response.raise_for_status()
-
-            total_size = int(response.headers.get('content-length', 0))
-            downloaded = 0
-
-            with open(output_path, 'wb') as f:
-                for chunk in response.iter_content(chunk_size=8192):
-                    f.write(chunk)
-                    downloaded += len(chunk)
-
-                    if total_size > 0:
-                        progress = (downloaded / total_size) * 100
-                        print(f"\r[OpenVoice] 下载进度: {progress:.1f}%", end='', flush=True)
-
-            print()  # 换行
-
-        except Exception as e:
-            print(f"[OpenVoice] 下载失败: {e}")
-            raise
-
-    def extract_zip_file(self, zip_path, extract_dir):
-        """解压zip文件"""
-        try:
-            import zipfile
-
-            with zipfile.ZipFile(zip_path, 'r') as zip_ref:
-                zip_ref.extractall(extract_dir)
-
-            print(f"[OpenVoice] 解压完成: {zip_path} -> {extract_dir}")
-
-        except Exception as e:
-            print(f"[OpenVoice] 解压失败: {e}")
             raise
 
 def generate_voice(text, speaker_id=None):
@@ -527,30 +581,33 @@ def list_available_speakers():
         return []
 
 def extract_trait_from_audio(data):
-    try:
-        """
-        提取说话人特征(最终接口）
-    
-        Args:
-            speaker_id (str): 说话人唯一标识
-            reference_audio (str): 参考音频文件路径
-    
-        Returns:
-            bool: 成功返回True，失败返回False
-        """
-        video_path = data['ref_video']
+    """
+    提取说话人特征(最终接口）
 
+    Args:
+        data (dict): 包含ref_video和speaker_id的字典
+
+    Returns:
+        bool: 成功返回True，失败返回False
+    """
+    try:
+        video_path = data['ref_video']
         print("[backend.model_trainer] 开始OpenVoice语音特征提取...")
 
+        extracted_audio = None
         if video_path.endswith(".mp4"):
-            # 从视频中提取音频
-            extracted_audio = extract_audio_from_video(video_path)
+            # 从视频中提取音频，使用AudioProcessor
+            audio_processor = AudioProcessor()
+            extracted_audio = audio_processor.extract_audio_from_video(video_path)
 
+        if not extracted_audio:
+            print("[backend.model_trainer] 音频提取失败，无法进行特征提取")
+            return False
+        
         # ToDo : 可以让用户自定义语音名字 （需要在前端加上speaker_id选项)
-        speaker_id=data["speaker_id"]
-        if speaker_id:
-            print()
-        else:
+        # 获取或生成说话人ID
+        speaker_id = data.get("speaker_id")
+        if not speaker_id:
             # 生成的说话人ID
             timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
             speaker_id = f"user_{timestamp}"
@@ -576,56 +633,12 @@ def extract_trait_from_audio(data):
                 json.dump(model_info, f, indent=2, ensure_ascii=False)
 
             print(f"[backend.model_trainer] 模型信息已保存: {info_path}")
+            return True
 
         else:
             print("[backend.model_trainer] OpenVoice说话人特征提取失败")
+            return False
 
     except Exception as e:
         print(f"[backend.model_trainer] OpenVoice训练失败: {e}")
-
-
-def extract_audio_from_video(video_path):
-    """
-    从视频中提取音频
-    """
-    try:
-        # 确保输出目录存在
-        os.makedirs("static/audios", exist_ok=True)
-
-        # 生成音频文件名
-        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-        audio_output = f"static/audios/extracted_{timestamp}.wav"
-
-        # 使用ffmpeg提取音频
-        cmd = [
-            "ffmpeg", "-i", video_path,
-            "-vn",  # 禁用视频
-            "-acodec", "pcm_s16le",  # 音频编码
-            "-ar", "16000",  # 采样率
-            "-ac", "1",  # 单声道
-            "-y",  # 覆盖输出文件
-            audio_output
-        ]
-
-        print(f"[backend.model_trainer] 提取音频命令: {' '.join(cmd)}")
-
-        result = subprocess.run(
-            cmd,
-            capture_output=True,
-            text=True,
-            timeout=60  # 1分钟超时
-        )
-
-        if result.returncode == 0:
-            print(f"[backend.model_trainer] 音频提取成功: {audio_output}")
-            return audio_output
-        else:
-            print(f"[backend.model_trainer] 音频提取失败: {result.stderr}")
-            return None
-
-    except subprocess.TimeoutExpired:
-        print("[backend.model_trainer] 音频提取超时")
-        return None
-    except Exception as e:
-        print(f"[backend.model_trainer] 音频提取异常: {e}")
-        return None
+        return False
