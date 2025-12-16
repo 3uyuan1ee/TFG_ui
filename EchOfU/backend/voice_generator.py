@@ -345,7 +345,8 @@ class OpenVoiceService:
             target_se = speaker_info['se']
 
             # 1. 先用基础模型生成语音（使用MeloTTS或base speaker）
-            temp_audio = f"temp_base_{speaker_id}_{int(time.time())}.wav"
+            # 临时文件也使用项目根目录
+            temp_audio = os.path.join(self.path_manager.project_root, f"temp_base_{speaker_id}_{int(time.time())}.wav")
             base_speaker_path = self.generate_base_speech(text, temp_audio, base_speaker_key)
 
             if not base_speaker_path:
@@ -411,12 +412,22 @@ class OpenVoiceService:
         try:
             import os
 
+            print(f"[OpenVoice] 开始使用MeloTTS生成语音...")
+            print(f"[OpenVoice] 输入文本: {text}")
+            print(f"[OpenVoice] 输出路径: {output_path}")
+            print(f"[OpenVoice] 说话人key: {base_speaker_key}")
+
             # ToDo : Mac上改为了CPU，记得改回来
             # 设置环境变量，强制使用CPU，避免MPS问题
+            print(f"[OpenVoice] 设置环境变量强制使用CPU...")
             os.environ['PYTORCH_ENABLE_MPS_FALLBACK'] = '0'
             os.environ['CUDA_VISIBLE_DEVICES'] = ''
+            print(f"[OpenVoice] PYTORCH_ENABLE_MPS_FALLBACK: {os.environ.get('PYTORCH_ENABLE_MPS_FALLBACK')}")
+            print(f"[OpenVoice] CUDA_VISIBLE_DEVICES: {os.environ.get('CUDA_VISIBLE_DEVICES')}")
 
+            print(f"[OpenVoice] 正在导入MeloTTS...")
             from melo.api import TTS
+            print(f"[OpenVoice] MeloTTS导入成功")
 
             # 根据base_speaker_key确定语言
             language_mapping = {
@@ -426,32 +437,53 @@ class OpenVoiceService:
             }
 
             language = language_mapping.get(base_speaker_key, "EN")
+            print(f"[OpenVoice] 映射后语言: {language}")
 
+            print(f"[OpenVoice] 正在初始化MeloTTS模型 (语言: {language}, 设备: cpu)...")
             # 强制使用CPU初始化MeloTTS，避免MPS相关错误
             model = TTS(language=language, device='cpu')
+            print(f"[OpenVoice] MeloTTS模型初始化成功")
+
             speaker_ids = model.hps.data.spk2id
+            print(f"[OpenVoice] 可用说话人: {dict(speaker_ids)}")
 
             # 选择说话人ID
             if base_speaker_key in speaker_ids:
                 speaker_id = speaker_ids[base_speaker_key]
+                print(f"[OpenVoice] 使用指定说话人: {base_speaker_key} -> {speaker_id}")
             else:
                 # 使用默认说话人
                 speaker_id = list(speaker_ids.values())[0]
-                print(f"[OpenVoice] 未找到说话人 {base_speaker_key}，使用默认说话人")
+                print(f"[OpenVoice] 未找到说话人 {base_speaker_key}，使用默认说话人: {speaker_id}")
 
             # ToDo : 可以让用户自己调节语速
             # 生成语音
             speed = 1.0
+            print(f"[OpenVoice] 开始生成语音 (语速: {speed})...")
+            print(f"[OpenVoice] 模型参数: 语言={language}, 说话人ID={speaker_id}, 输出路径={output_path}")
+
             model.tts_to_file(text, speaker_id, output_path, speed=speed)
 
-            print(f"[OpenVoice] MeloTTS生成语音成功: {output_path}")
-            return True
+            # 检查文件是否成功生成
+            if os.path.exists(output_path):
+                file_size = os.path.getsize(output_path)
+                print(f"[OpenVoice] MeloTTS生成语音成功: {output_path}")
+                print(f"[OpenVoice] 生成文件大小: {file_size} bytes")
+                return True
+            else:
+                print(f"[OpenVoice] MeloTTS生成失败: 输出文件不存在 {output_path}")
+                return False
 
-        except ImportError:
+        except ImportError as ie:
+            print(f"[OpenVoice] MeloTTS导入错误: {ie}")
             print("[OpenVoice] MeloTTS未安装，回退到传统TTS")
             return False
         except Exception as e:
-            print(f"[OpenVoice] MeloTTS生成失败: {e}")
+            print(f"[OpenVoice] MeloTTS生成失败 - 详细错误: {type(e).__name__}: {e}")
+            print(f"[OpenVoice] 错误详情: {str(e)}")
+            import traceback
+            print(f"[OpenVoice] 错误堆栈:")
+            traceback.print_exc()
             return False
 
     def synthesize_speech(self, text, output_path, speaker="default", language="Chinese"):
