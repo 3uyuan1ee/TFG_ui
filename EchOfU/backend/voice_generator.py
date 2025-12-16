@@ -358,18 +358,32 @@ class VoiceGenerator:
 
     def __init__(self, path_manager):
         self.path_manager = path_manager
+        self._melotts_models = {}  # 缓存MeloTTS模型实例
+
+    def _get_or_create_melotts_model(self, language, device='cpu'):
+        """获取或创建MeloTTS模型实例（带缓存）"""
+        cache_key = f"{language}_{device}"
+        if cache_key not in self._melotts_models:
+            print(f"[VoiceGenerator] 初始化MeloTTS模型 (语言: {language}, 设备: {device})...")
+            from melo.api import TTS
+            self._melotts_models[cache_key] = TTS(language=language, device=device)
+            print(f"[VoiceGenerator] MeloTTS模型初始化成功并缓存")
+        return self._melotts_models[cache_key]
 
     def generate_with_melotts_tts(self, text, output_path, base_speaker_key="ZH"):
         """尝试使用MeloTTS生成语音"""
-        try:
-            import os
+        # 保存原始环境变量
+        import os
+        original_mps_fallback = os.environ.get('PYTORCH_ENABLE_MPS_FALLBACK')
+        original_cuda_devices = os.environ.get('CUDA_VISIBLE_DEVICES')
 
+        try:
             print(f"[VoiceGenerator] 开始使用MeloTTS生成语音...")
             print(f"[VoiceGenerator] 输入文本: {text}")
             print(f"[VoiceGenerator] 输出路径: {output_path}")
             print(f"[VoiceGenerator] 说话人key: {base_speaker_key}")
 
-            # 设置环境变量，强制使用CPU，避免MPS问题
+            # 临时设置环境变量，强制使用CPU，避免MPS问题
             print(f"[VoiceGenerator] 设置环境变量强制使用CPU...")
             os.environ['PYTORCH_ENABLE_MPS_FALLBACK'] = '0'
             os.environ['CUDA_VISIBLE_DEVICES'] = ''
@@ -390,9 +404,8 @@ class VoiceGenerator:
             language = language_mapping.get(base_speaker_key, "EN")
             print(f"[VoiceGenerator] 映射后语言: {language}")
 
-            print(f"[VoiceGenerator] 正在初始化MeloTTS模型 (语言: {language}, 设备: cpu)...")
-            model = TTS(language=language, device='cpu')
-            print(f"[VoiceGenerator] MeloTTS模型初始化成功")
+            # 使用缓存的模型
+            model = self._get_or_create_melotts_model(language, 'cpu')
 
             speaker_ids = model.hps.data.spk2id
             print(f"[VoiceGenerator] 可用说话人: {dict(speaker_ids)}")
@@ -433,6 +446,19 @@ class VoiceGenerator:
             print(f"[VoiceGenerator] 错误堆栈:")
             traceback.print_exc()
             return False
+        finally:
+            # 恢复原始环境变量
+            if original_mps_fallback is not None:
+                os.environ['PYTORCH_ENABLE_MPS_FALLBACK'] = original_mps_fallback
+            else:
+                os.environ.pop('PYTORCH_ENABLE_MPS_FALLBACK', None)
+
+            if original_cuda_devices is not None:
+                os.environ['CUDA_VISIBLE_DEVICES'] = original_cuda_devices
+            else:
+                os.environ.pop('CUDA_VISIBLE_DEVICES', None)
+
+            print(f"[VoiceGenerator] 已恢复原始环境变量设置")
 
 
 class OpenVoiceService:
@@ -528,8 +554,18 @@ class OpenVoiceService:
         print(f"[OpenVoice] 说话人ID: {speaker_id if speaker_id else 'None (使用基础TTS)'}")
 
         try:
+            # 输入验证
+            if not text or not text.strip():
+                print("[OpenVoice]  输入文本为空")
+                return None
+
+            text = text.strip()
+            if len(text) > 1000:  # 假设最大文本长度
+                print("[OpenVoice]  输入文本过长，最大支持1000字符")
+                return None
+
             if not self.tone_converter:
-                print("[OpenVoice] ❌ 音色转换器未初始化，无法生成语音")
+                print("[OpenVoice]  音色转换器未初始化，无法生成语音")
                 return None
 
             print("[OpenVoice] ✅ 音色转换器已就绪")
@@ -537,6 +573,11 @@ class OpenVoiceService:
             # 生成输出文件名 - 使用PathManager
             timestamp = time.strftime("%Y%m%d_%H%M%S")
             output_path = self.path_manager.get_output_voice_path(timestamp)
+
+            # 确保输出目录存在
+            output_dir = os.path.dirname(output_path)
+            os.makedirs(output_dir, exist_ok=True)
+
             print(f"[OpenVoice] 输出文件路径: {output_path}")
 
             if speaker_id and speaker_id in self.feature_manager.speaker_features:
@@ -560,6 +601,7 @@ class OpenVoiceService:
 
     def _clone_voice_with_cached_feature(self, text, speaker_id, output_path, base_speaker_key="ZH"):
         """使用缓存的说话人特征进行语音克隆"""
+        temp_audio = None
         try:
             if not self.tone_converter:
                 return None
@@ -592,16 +634,20 @@ class OpenVoiceService:
                 message=encode_message
             )
 
-            # 4. 清理临时文件
-            if os.path.exists(temp_audio):
-                os.remove(temp_audio)
-
             print(f"[OpenVoice] 使用V2模型和缓存特征生成语音: {speaker_id}")
             return output_path
 
         except Exception as e:
             print(f"[OpenVoice] 使用缓存特征生成语音失败: {e}")
             return None
+        finally:
+            # 4. 确保清理临时文件（异常安全）
+            if temp_audio and os.path.exists(temp_audio):
+                try:
+                    os.remove(temp_audio)
+                    print(f"[OpenVoice] 清理临时文件: {temp_audio}")
+                except Exception as cleanup_error:
+                    print(f"[OpenVoice] 清理临时文件失败: {cleanup_error}")
 
     def _generate_base_speech(self, text, output_path, base_speaker_key="ZH"):
         """生成基础语音（支持MeloTTS）"""
@@ -768,13 +814,30 @@ def extract_trait_from_audio(data):
         print("[backend.model_trainer] 开始OpenVoice语音特征提取...")
 
         extracted_audio = None
-        if video_path.endswith(".mp4"):
-            # 从视频中提取音频，使用AudioProcessor
+
+        # 判断文件类型并处理
+        if video_path.endswith((".mp4", ".avi", ".mov", ".mkv", ".wmv", ".flv")):
+            # 视频文件，提取音频
+            print(f"[backend.model_trainer] 检测到视频文件: {video_path}")
             audio_processor = AudioProcessor()
             extracted_audio = audio_processor.extract_audio_from_video(video_path)
+        elif video_path.endswith((".wav", ".mp3", ".flac", ".m4a", ".aac", ".ogg")):
+            # 音频文件，直接使用
+            print(f"[backend.model_trainer] 检测到音频文件: {video_path}")
+            extracted_audio = video_path
+        else:
+            print(f"[backend.model_trainer] 不支持的文件格式: {video_path}")
+            print("[backend.model_trainer] 支持的视频格式: mp4, avi, mov, mkv, wmv, flv")
+            print("[backend.model_trainer] 支持的音频格式: wav, mp3, flac, m4a, aac, ogg")
+            return False
 
         if not extracted_audio:
-            print("[backend.model_trainer] 音频提取失败，无法进行特征提取")
+            print("[backend.model_trainer] 音频获取失败，无法进行特征提取")
+            return False
+
+        # 验证音频文件是否存在
+        if not os.path.exists(extracted_audio):
+            print(f"[backend.model_trainer] 音频文件不存在: {extracted_audio}")
             return False
 
         # ToDo : 可以让用户自定义语音名字 （需要在前端加上speaker_id选项)
