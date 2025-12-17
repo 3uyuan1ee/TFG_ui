@@ -5,6 +5,54 @@
     <meta charset="UTF-8">
     <title>音频克隆界面</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    <style>
+        .audio-player {
+            width: 100%;
+            margin-bottom: 30px;
+            text-align: center;
+        }
+
+        .audio-player h3 {
+            margin-bottom: 15px;
+            color: #2c3e50;
+        }
+
+        .audio-player audio {
+            width: 100%;
+            margin-bottom: 10px;
+        }
+
+        .audio-name {
+            text-align: center;
+            color: #7f8c8d;
+            font-size: 14px;
+        }
+
+        .clone-section {
+            margin-bottom: 30px;
+        }
+
+        .generate-section {
+            margin-top: 30px;
+            padding-top: 30px;
+            border-top: 2px solid #ecf0f1;
+        }
+
+        .section-title {
+            margin-top: 0;
+            margin-bottom: 20px;
+            color: #2c3e50;
+            font-size: 18px;
+        }
+
+        .clone-btn {
+            background-color: #e74c3c !important;
+        }
+
+        .clone-btn:hover {
+            background-color: #c0392b !important;
+        }
+    </style>
 </head>
 
 <body class="subpage-bg">
@@ -12,22 +60,22 @@
     <div class="video-page-container">
         <!-- 左侧：音频播放区域 -->
         <div class="video-display">
-            <div style="width: 100%; margin-bottom: 30px;">
-                <h3 style="margin-bottom: 15px; color: #2c3e50;">原音频</h3>
-                <audio id="originalAudio" controls style="width: 100%; margin-bottom: 10px;">
+            <div class="audio-player">
+                <h3>原音频</h3>
+                <audio id="originalAudio" controls>
                     <source src="{{ url_for('static', filename='audios/sample.wav') }}" type="audio/wav">
                 </audio>
-                <div id="originalAudioName" style="text-align: center; color: #7f8c8d; font-size: 14px;">
+                <div id="originalAudioName" class="audio-name">
                     请选择原始音频文件
                 </div>
             </div>
 
-            <div style="width: 100%;">
-                <h3 style="margin-bottom: 15px; color: #2c3e50;">克隆后音频</h3>
-                <audio id="clonedAudio" controls style="width: 100%; margin-bottom: 10px;">
+            <div class="audio-player">
+                <h3>克隆后音频</h3>
+                <audio id="clonedAudio" controls>
                     <source src="{{ url_for('static', filename='audios/sample.wav') }}" type="audio/wav">
                 </audio>
-                <div id="clonedAudioName" style="text-align: center; color: #7f8c8d; font-size: 14px;">
+                <div id="clonedAudioName" class="audio-name">
                     等待克隆生成...
                 </div>
             </div>
@@ -36,8 +84,8 @@
         <!-- 右侧：参数配置区域 -->
         <div class="form-section">
             <!-- 克隆功能区域 -->
-            <div>
-                <h3 style="margin-top: 0; margin-bottom: 20px; color: #2c3e50; font-size: 18px;">音频克隆</h3>
+            <div class="clone-section">
+                <h3 class="section-title">音频克隆</h3>
 
                 <div class="form-group">
                     <label>原音频相对路径</label>
@@ -51,14 +99,14 @@
                            placeholder="请输入音频编号">
                 </div>
 
-                <button type="button" class="generate-btn" style="background-color: #e74c3c;" onclick="cloneAudio()">
+                <button type="button" class="generate-btn clone-btn" onclick="cloneAudio()">
                     开始克隆
                 </button>
             </div>
 
             <!-- 生成功能区域 -->
-            <div style="margin-top: 30px; padding-top: 30px; border-top: 2px solid #ecf0f1;">
-                <h3 style="margin-bottom: 20px; color: #2c3e50; font-size: 18px;">语音生成</h3>
+            <div class="generate-section">
+                <h3 class="section-title">语音生成</h3>
 
                 <div class="form-group">
                     <label>音频编号</label>
