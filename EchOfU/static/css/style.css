@@ -1,3 +1,89 @@
+/* ========== 通用样式 ========== */
+* {
+    box-sizing: border-box;
+}
+
+body {
+    font-family: "Segoe UI", "Microsoft YaHei", sans-serif;
+    margin: 0;
+    padding: 0;
+    transition: background-color 0.3s ease, color 0.3s ease;
+}
+
+/* 主页样式 */
+body.main-bg {
+    background: radial-gradient(circle at center, #f0f0f0 0%, #e0e0e0 100%);
+    color: #333;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    height: 100vh;
+    overflow: hidden;
+}
+
+.main-bg .container {
+    text-align: center;
+    padding: 40px 60px;
+    background: rgba(255, 255, 255, 0.9);
+    border: 1px solid rgba(0, 0, 0, 0.1);
+    border-radius: 20px;
+    box-shadow: 0 0 40px rgba(0, 150, 255, 0.1);
+    backdrop-filter: blur(10px);
+    animation: fadeIn 1.2s ease;
+}
+
+.main-bg h1 {
+    font-size: 2.2rem;
+    letter-spacing: 2px;
+    color: #007acc;
+    margin-bottom: 40px;
+    text-shadow: 0 0 15px rgba(0, 122, 204, 0.3);
+    animation: glowText 3s infinite alternate;
+}
+
+.main-bg .button-container {
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+}
+
+.main-bg .button-container button {
+    background: linear-gradient(90deg, #007acc, #005299);
+    border: none;
+    color: white;
+    font-size: 1.1rem;
+    font-weight: bold;
+    padding: 14px 0;
+    border-radius: 12px;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    box-shadow: 0 0 15px rgba(0, 122, 204, 0.3);
+}
+
+.main-bg .button-container button:hover {
+    transform: scale(1.05);
+    background: linear-gradient(90deg, #005299, #007acc);
+    box-shadow: 0 0 25px rgba(0, 122, 204, 0.5);
+}
+
+.main-bg .button-container button:active {
+    transform: scale(0.98);
+}
+
+.main-bg .footer {
+    position: absolute;
+    bottom: 15px;
+    font-size: 0.9rem;
+    color: rgba(51, 51, 51, 0.6);
+}
+
+/* 子页面通用样式 */
+body.subpage-bg {
+    background-color: #f5f5f5;
+    color: #333;
+    padding: 20px;
+}
+
 /* ========== 视频生成界面布局 ========== */
 .video-page-container {
     display: flex;
@@ -84,4 +170,160 @@ h2 {
     margin-top: 30px;
     margin-bottom: 20px;
     color: #333;
+}
+
+/* ========== 主题切换功能 ========== */
+
+/* 主题切换按钮 */
+.theme-toggle {
+    position: fixed;
+    top: 20px;
+    right: 20px;
+    z-index: 1000;
+    background: none;
+    border: none;
+    cursor: pointer;
+    padding: 10px;
+    border-radius: 50%;
+    transition: all 0.3s ease;
+}
+
+.theme-toggle:hover {
+    transform: scale(1.1);
+}
+
+.theme-icon {
+    width: 24px;
+    height: 24px;
+    transition: all 0.3s ease;
+}
+
+/* 深色模式样式 */
+body.dark-mode {
+    background-color: #1a1a1a;
+    color: #ffffff;
+}
+
+body.dark-mode .subpage-bg {
+    background-color: #1a1a1a;
+}
+
+body.dark-mode .video-page-container {
+    background-color: #2d2d2d;
+}
+
+body.dark-mode h2 {
+    color: #ffffff;
+}
+
+body.dark-mode h3 {
+    color: #ffffff;
+}
+
+body.dark-mode .form-section {
+    background-color: #2d2d2d;
+    color: #ffffff;
+}
+
+body.dark-mode .form-group label {
+    color: #ffffff;
+}
+
+body.dark-mode input,
+body.dark-mode select,
+body.dark-mode textarea {
+    background-color: #404040;
+    color: #ffffff;
+    border-color: #555;
+}
+
+body.dark-mode input::placeholder,
+body.dark-mode textarea::placeholder {
+    color: #aaaaaa;
+}
+
+body.dark-mode .generate-btn {
+    background-color: #ff6b35;
+    color: #ffffff;
+}
+
+body.dark-mode .generate-btn:hover {
+    background-color: #e55a2b;
+}
+
+body.dark-mode .clone-btn {
+    background-color: #ff4757 !important;
+    color: #ffffff;
+}
+
+body.dark-mode .clone-btn:hover {
+    background-color: #ff3838 !important;
+}
+
+body.dark-mode .section-title {
+    color: #ffffff;
+}
+
+body.dark-mode .audio-name {
+    color: #aaaaaa;
+}
+
+body.dark-mode .generate-section {
+    border-top-color: #555;
+}
+
+/* 主页深色模式 */
+body.dark-mode.main-bg {
+    background: radial-gradient(circle at center, #0a0a0a 0%, #1a1a1a 100%);
+}
+
+body.dark-mode .container {
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+}
+
+body.dark-mode .container h1 {
+    color: #00e5ff;
+}
+
+/* 深色模式动画 */
+body.dark-mode .theme-icon {
+    filter: invert(1);
+}
+
+/* 平滑过渡 */
+body,
+body * {
+    transition: background-color 0.3s ease, color 0.3s ease, border-color 0.3s ease;
+}
+
+/* 主题切换按钮悬停效果 */
+.theme-toggle {
+    background: rgba(255, 255, 255, 0.1);
+    backdrop-filter: blur(10px);
+}
+
+body.dark-mode .theme-toggle {
+    background: rgba(0, 0, 0, 0.3);
+    backdrop-filter: blur(10px);
+}
+
+/* 动画效果 */
+@keyframes glowText {
+    from { text-shadow: 0 0 10px #007acc; }
+    to { text-shadow: 0 0 25px #00e5ff, 0 0 50px #00e5ff; }
+}
+
+@keyframes fadeIn {
+    from { opacity: 0; transform: translateY(20px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+body.dark-mode .main-bg h1 {
+    animation: glowTextDark 3s infinite alternate;
+}
+
+@keyframes glowTextDark {
+    from { text-shadow: 0 0 10px #00e5ff; }
+    to { text-shadow: 0 0 25px #00ffff, 0 0 50px #00ffff; }
 }
