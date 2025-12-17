@@ -2,7 +2,7 @@ import os
 import time
 import subprocess
 import shutil
-from voice_generator import OpenVoiceService
+from .voice_generator import OpenVoiceService
 
 
 def generate_video(data):
