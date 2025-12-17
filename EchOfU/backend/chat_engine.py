@@ -12,6 +12,7 @@ def chat_response(data):
     for k, v in data.items():
         print(f"  {k}: {v}")
 
+    # ToDo : 注意这里，与前段对接好录音的存储路径
     # 语音转文字
     # input_audio = "./static/audios/input.wav"
     input_audio = "./SyncTalk/audio/aud.wav"
@@ -32,24 +33,24 @@ def chat_response(data):
 
     print(f"[backend.chat_engine] AI回复文本: {ai_response_text}")
 
-    # ToDo : 看老师的前端设计，这里应该增加一个语音克隆选项（也就是说用户可以选择之前已经克隆过的语音/重新克隆语音/克隆自己的语音），这里需要设计一下
-
     # ToDo : 增加用户选择语音的选项（前端需要实现）
 
     ov=OpenVoiceService
 
+    # ToDo : 与前段对接数据格式，注意app.py中传过来的data格式
+    specker_id = data['speaker_id']
     # 列出可用的语音
     available_speakers = ov.list_available_speakers()
     print(f"[backend.chat_engine] 可用说话人: {available_speakers}")
 
-    # 默认第一个
-    speaker_id = available_speakers[0]
-
     # 如果用户选择了语音
-    if data.get('speaker_id', None) and data['speaker_id'] in available_speakers:
+    if specker_id in available_speakers:
         speaker_id = data.get('speaker_id')
+        print(f"[backend.chat_engine] 使用说话人: {speaker_id}")
+    else:
+        print(f"[backend.chat_engine] 说话人无效")
+        return None
 
-    print(f"[backend.chat_engine] 使用说话人: {speaker_id}")
 
     # OpenVoice语音合成
 

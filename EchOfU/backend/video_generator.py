@@ -76,13 +76,12 @@ def generate_video(data):
 
             ov=OpenVoiceService
 
-
-            # 如果要实现缓存，speaker_id需要是唯一的，不能多个克隆对象都用一个speaker_id,这样会被覆盖
-            speaker_id=1;
+            # ToDo : 与前端对接数据格式
+            speaker_id=data['speaker_id'];
             text=data['text']
             ref_audio=data['ref_audio']
 
-            # ToDo : 可以设计与前端的同学设计一个单独的语音特征提取页面，这样就不用每次都再进行一次提取，只用选择speaker_id进行克隆即可
+
             ov.extract_and_save_speaker_feature(speaker_id,ref_audio)
 
 
