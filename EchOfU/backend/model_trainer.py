@@ -1,6 +1,5 @@
-import subprocess
 import os
-import time
+import subprocess
 
 def train_model(data):
     """
@@ -24,7 +23,7 @@ def train_model(data):
                 "--gpu", data['gpu_choice'],
                 "--epochs", data['epoch']
             ]
-            
+
             print(f"[backend.model_trainer] 执行命令: {' '.join(cmd)}")
             # 执行训练命令
             result = subprocess.run(
@@ -33,11 +32,28 @@ def train_model(data):
                 text=True,
                 check=True
             )
-            
+
             print("[backend.model_trainer] 训练输出:", result.stdout)
             if result.stderr:
                 print("[backend.model_trainer] 错误输出:", result.stderr)
-                
+
+        except subprocess.CalledProcessError as e:
+            print(f"[backend.model_trainer] 训练失败，退出码: {e.returncode}")
+            print(f"错误输出: {e.stderr}")
+            return video_path
+        except FileNotFoundError:
+            print("[backend.model_trainer] 错误: 找不到训练脚本")
+            return video_path
+        except Exception as e:
+            print(f"[backend.model_trainer] 训练过程中发生未知错误: {e}")
+            return video_path
+    elif data['model_choice'] == "ER-NeRF":
+
+        #Todo : 实现ER-NeRF训练逻辑
+        try:
+
+            print("还需要实现ER-NeRF训练逻辑")
+
         except subprocess.CalledProcessError as e:
             print(f"[backend.model_trainer] 训练失败，退出码: {e.returncode}")
             print(f"错误输出: {e.stderr}")
@@ -49,5 +65,9 @@ def train_model(data):
             print(f"[backend.model_trainer] 训练过程中发生未知错误: {e}")
             return video_path
 
+
     print("[backend.model_trainer] 训练完成")
     return video_path
+
+
+#  我发现老师的训练逻辑是单独训练视频生成模型，然后再单独提取语音特征进行克隆，所以在模型训练这里应该不用再提取语音特征

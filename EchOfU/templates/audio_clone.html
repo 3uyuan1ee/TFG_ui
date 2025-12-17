@@ -11,6 +11,7 @@
 
     <!-- JavaScript模块 -->
     <script src="{{ url_for('static', filename='js/modules/theme-manager.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/modules/audio-manager.js') }}"></script>
 
     <style>
         /* 只保留页面特有的样式 */
@@ -117,11 +118,11 @@
                     </div>
                 </div>
 
-                <!-- 克隆音频播放器 -->
+                <!-- 生成音频播放器 -->
                 <div class="preview-container" id="clonedAudioPlayer">
                     <div class="preview-placeholder">
-                        <h3>克隆音频播放器</h3>
-                        <p>克隆完成后将在此显示</p>
+                        <h3>生成音频播放器</h3>
+                        <p>特征提取成功后，可生成新音频在此显示</p>
                     </div>
                 </div>
 
@@ -299,7 +300,6 @@
             audio.addEventListener('error', function() {
                 playerContainer.innerHTML = `
                     <div class="preview-placeholder">
-                        <div class="preview-icon">❌</div>
                         <h3>音频加载失败</h3>
                         <p>请检查路径是否正确</p>
                         <small style="color: var(--text-secondary);">${audioPath}</small>
@@ -348,44 +348,71 @@
             }, 500);
 
             try {
-                // 这里应该调用实际的克隆接口
-                // const formData = new FormData();
-                // formData.append('original_path', originalPath);
-                // formData.append('audio_id', audioId);
-                // formData.append('target_id', targetAudioId);
-                // const response = await fetch('/audio_clone', { method: 'POST', body: formData });
-                // const result = await response.json();
+                // 调用实际的克隆接口
+                const formData = new FormData();
+                formData.append('original_audio_path', originalPath);
+                formData.append('audio_id', targetAudioId); // 使用目标音频ID作为音频ID
+                formData.append('target_audio_id', targetAudioId);
+                formData.append('gen_audio_id', ''); // 克隆阶段不生成文本
+                formData.append('generate_text', ''); // 克隆阶段不生成文本
 
-                // 模拟延迟
-                await new Promise(resolve => setTimeout(resolve, 3000));
+                console.log('[音频克隆] 发送克隆请求:', {
+                    original_audio_path: originalPath,
+                    audio_id: targetAudioId,
+                    target_audio_id: targetAudioId
+                });
+
+                const response = await fetch('/audio_clone', {
+                    method: 'POST',
+                    body: formData
+                });
+
+                const result = await response.json();
+                console.log('[音频克隆] 服务器响应:', result);
 
                 clearInterval(progressInterval);
                 progressBar.style.width = '100%';
                 progressPercent.textContent = '100%';
-                progressStatus.textContent = '克隆完成';
-                cloneStatus.textContent = '克隆完成';
-                cloneStatus.style.color = 'var(--neon-green)';
 
-                // 显示克隆音频
-                const clonedContainer = document.getElementById('clonedAudioPlayer');
-                clonedContainer.innerHTML = `
-                    <audio controls class="audio-element" autoplay>
-                        <source src="/static/voices/cloned_${targetAudioId}.wav" type="audio/wav">
-                        <source src="/static/voices/cloned_${targetAudioId}.mp3" type="audio/mpeg">
-                        您的浏览器不支持音频播放
-                    </audio>
-                    <div style="text-align: center; margin-top: var(--space-2); color: var(--neon-green);">
-                        <small>✅ 克隆完成 - 目标音频: ${targetAudioId}</small>
-                    </div>
-                `;
+                if (result.status === 'success') {
+                    progressStatus.textContent = '特征提取完成';
+                    cloneStatus.textContent = '特征提取完成';
+                    cloneStatus.style.color = 'var(--neon-green)';
+
+                    // 显示特征提取成功信息（不显示音频播放器，因为这只是特征提取）
+                    const clonedContainer = document.getElementById('clonedAudioPlayer');
+
+                    clonedContainer.innerHTML = `
+                        <div style="text-align: center; padding: var(--space-4); background: var(--surface-secondary); border-radius: var(--radius-lg); border: 1px solid var(--neon-green);">
+                            <div style="font-size: 2rem; color: var(--neon-green); margin-bottom: var(--space-2);">✅</div>
+                            <div style="color: var(--text-primary); font-weight: 600; margin-bottom: var(--space-2);">特征提取成功!</div>
+                            <div style="color: var(--text-secondary); font-size: 0.875rem;">
+                                <div> 说话人ID: <strong>${targetAudioId}</strong></div>
+                                <div> 提取时间: <strong>${new Date().toLocaleString()}</strong></div>
+                                <div> 现在可以使用此说话人特征生成新的音频</div>
+                            </div>
+                        </div>
+                    `;
+
+                    // 刷新音频列表，使新克隆的音频出现在选择框中
+                    setTimeout(() => {
+                        refreshAudioData();
+                    }, 1000);
+
+                } else {
+                    progressStatus.textContent = '克隆失败';
+                    cloneStatus.textContent = '克隆失败';
+                    cloneStatus.style.color = 'var(--neon-red)';
+                    alert(`克隆失败: ${result.message || '未知错误'}`);
+                }
 
             } catch (error) {
-                console.error('Error:', error);
+                console.error('[音频克隆] 请求失败:', error);
                 clearInterval(progressInterval);
                 progressStatus.textContent = '克隆失败';
                 cloneStatus.textContent = '克隆失败';
                 cloneStatus.style.color = 'var(--neon-red)';
-                alert('克隆失败，请查看控制台');
+                alert('克隆请求失败，请查看控制台');
             } finally {
                 btn.disabled = false;
                 btn.innerHTML = '开始克隆';
@@ -417,7 +444,7 @@
                 const btn = document.getElementById('refreshBtn');
                 if (btn) {
                     const originalText = btn.innerHTML;
-                    btn.innerHTML = '✅ 已刷新';
+                    btn.innerHTML = ' 已刷新';
                     btn.style.color = 'var(--neon-green)';
 
                     setTimeout(() => {
@@ -432,7 +459,7 @@
                 const btn = document.getElementById('refreshBtn');
                 if (btn) {
                     const originalText = btn.innerHTML;
-                    btn.innerHTML = '❌ 刷新失败';
+                    btn.innerHTML = ' 刷新失败';
                     btn.style.color = 'var(--neon-red)';
 
                     setTimeout(() => {
@@ -474,28 +501,68 @@
             }, 500);
 
             try {
-                // 这里应该调用实际的生成接口
-                // const formData = new FormData();
-                // formData.append('audio_id', genAudioId);
-                // formData.append('text', generateText);
-                // const response = await fetch('/generate_audio', { method: 'POST', body: formData });
-                // const result = await response.json();
+                // 调用实际的生成接口
+                const formData = new FormData();
+                formData.append('original_audio_path', ''); // 生成阶段不需要原音频
+                formData.append('audio_id', genAudioId);
+                formData.append('target_audio_id', genAudioId);
+                formData.append('gen_audio_id', genAudioId);
+                formData.append('generate_text', generateText);
 
-                // 模拟延迟
-                await new Promise(resolve => setTimeout(resolve, 4000));
+                console.log('[音频生成] 发送生成请求:', {
+                    audio_id: genAudioId,
+                    generate_text: generateText
+                });
+
+                const response = await fetch('/audio_clone', {
+                    method: 'POST',
+                    body: formData
+                });
+
+                const result = await response.json();
+                console.log('[音频生成] 服务器响应:', result);
 
                 clearInterval(progressInterval);
                 progressBar.style.width = '100%';
                 progressPercent.textContent = '100%';
-                progressStatus.textContent = '生成完成';
 
-                alert(`音频生成完成！\n音频编号: ${genAudioId}\n文本内容: ${generateText}`);
+                if (result.status === 'success') {
+                    progressStatus.textContent = '生成完成';
+
+                    if (result.cloned_audio_path) {
+                        // 显示生成的音频
+                        const generatedContainer = document.getElementById('clonedAudioPlayer');
+                        const audioPath = result.cloned_audio_path;
+
+                        generatedContainer.innerHTML = `
+                            <audio controls class="audio-element" autoplay>
+                                <source src="/${audioPath}" type="audio/wav">
+                                <source src="/${audioPath.replace('.wav', '.mp3')}" type="audio/mpeg">
+                                您的浏览器不支持音频播放
+                            </audio>
+                            <div style="text-align: center; margin-top: var(--space-2); color: var(--neon-green);">
+                                <small> 生成完成 - 音频: ${genAudioId}</small>
+                                <br><small> 文件路径: ${audioPath}</small>
+                                <br><small> 文本内容: "${generateText}"</small>
+                            </div>
+                        `;
+
+                        // 清空文本输入框
+                        document.getElementById('generateText').value = '';
+                    }
+
+                    alert(`音频生成完成！\n音频编号: ${genAudioId}\n文本内容: ${generateText}`);
+
+                } else {
+                    progressStatus.textContent = '生成失败';
+                    alert(`生成失败: ${result.message || '未知错误'}`);
+                }
 
             } catch (error) {
-                console.error('Error:', error);
+                console.error('[音频生成] 请求失败:', error);
                 clearInterval(progressInterval);
                 progressStatus.textContent = '生成失败';
-                alert('生成失败，请查看控制台');
+                alert('音频生成请求失败，请查看控制台');
             } finally {
                 btn.disabled = false;
                 btn.innerHTML = '生成音频';
@@ -513,4 +580,3 @@
     </script>
 </body>
 </html>
-{#ToDo : 刷新逻辑有问题#}
