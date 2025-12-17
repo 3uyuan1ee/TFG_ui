@@ -409,7 +409,7 @@
 
     <div class="chat-container">
         <div class="chat-header">
-            <h1 class="chat-title">💬 智能对话系统</h1>
+            <h1 class="chat-title">智能对话系统</h1>
             <p class="chat-subtitle">实时语音交互与智能响应</p>
         </div>
         
@@ -423,7 +423,7 @@
                     
                     <div class="voice-controls">
                         <button class="record-btn" id="recordBtn">
-                            <span id="recordIcon">🎙️</span>
+                            <span id="recordIcon">麦克风</span>
                             <span id="recordText" style="margin-top: 4px;">开始录音</span>
                         </button>
                         
@@ -462,17 +462,17 @@
                     
                     <div class="video-controls" style="position: absolute; top: 12px; right: 12px; display: flex; gap: 8px;">
                         <button class="neon-btn" id="fullscreenBtn" style="padding: 4px 8px; font-size: 12px;">
-                            ⛶ 全屏
+                            全屏
                         </button>
                         <button class="neon-btn" id="downloadBtn" style="padding: 4px 8px; font-size: 12px;">
-                            ⭳ 下载
+                            下载
                         </button>
                     </div>
                 </div>
                 
                 <div class="chat-messages floating-card">
                     <h3 class="config-title" style="margin-top: 0;">
-                        <span>📝 对话记录</span>
+                        <span>对话记录</span>
                     </h3>
                     
                     <div class="message-list" id="messageList">
@@ -488,7 +488,7 @@
             <div class="config-section floating-card">
                 <div class="config-group">
                     <h3 class="config-title">
-                        <span>⚙️ 模型配置</span>
+                        <span>模型配置</span>
                     </h3>
                     <div class="config-items">
                         <div class="config-item">
@@ -505,7 +505,7 @@
                 
                 <div class="config-group">
                     <h3 class="config-title">
-                        <span>🎚️ 参数设置</span>
+                        <span>参数设置</span>
                     </h3>
                     <div class="config-items">
                         <div class="config-item">
@@ -558,7 +558,7 @@
                 </div>
                 
                 <button class="neon-btn neon-btn-glow start-chat-btn" id="startChatBtn">
-                    🚀 开始对话
+                    开始对话
                 </button>
                 
                 <div class="time-estimate">
@@ -662,7 +662,7 @@
                 mediaRecorder.start();
                 isRecording = true;
                 recordBtn.classList.add('recording');
-                recordIcon.textContent = '⏹️';
+                recordIcon.textContent = '停止';
                 recordText.textContent = '停止录音';
                 recordStatus.textContent = '录音中...';
                 recordStatus.style.color = '#00d4aa';
@@ -689,7 +689,7 @@
                 clearInterval(timerInterval);
                 
                 recordBtn.classList.remove('recording');
-                recordIcon.textContent = '🎙️';
+                recordIcon.textContent = '麦克风';
                 recordText.textContent = '开始录音';
                 recordStatus.textContent = '处理中...';
                 recordStatus.style.color = '#00c6ff';
@@ -820,7 +820,7 @@
             } finally {
                 setTimeout(() => {
                     this.disabled = false;
-                    this.textContent = '🚀 开始对话';
+                    this.textContent = '开始对话';
                 }, 2000);
             }
         });

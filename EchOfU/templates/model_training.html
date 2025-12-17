@@ -220,7 +220,8 @@
         }
         
         .training-log {
-            background: rgba(0, 0, 0, 0.3);
+            background: var(--surface-secondary);
+            border: 1px solid rgba(0, 243, 255, 0.1);
             border-radius: var(--radius-md);
             padding: var(--space-3);
             max-height: 200px;
@@ -228,6 +229,25 @@
             font-family: 'Consolas', monospace;
             font-size: 0.8125rem;
             line-height: 1.4;
+        }
+
+        /* 美化滚动条 */
+        .training-log::-webkit-scrollbar {
+            width: 6px;
+        }
+
+        .training-log::-webkit-scrollbar-track {
+            background: rgba(0, 243, 255, 0.05);
+            border-radius: 3px;
+        }
+
+        .training-log::-webkit-scrollbar-thumb {
+            background: rgba(0, 243, 255, 0.3);
+            border-radius: 3px;
+        }
+
+        .training-log::-webkit-scrollbar-thumb:hover {
+            background: rgba(0, 243, 255, 0.5);
         }
         
         .log-entry {
@@ -264,7 +284,7 @@
 
     <div class="training-container">
         <div class="training-header">
-            <h1 class="training-title">🧠 智能模型训练</h1>
+            <h1 class="training-title">智能模型训练</h1>
             <p class="training-subtitle">基于深度学习的个性化模型训练系统</p>
         </div>
         
@@ -272,7 +292,7 @@
             <!-- 训练配置区域 -->
             <div class="training-form-section floating-card">
                 <h2 class="form-section-title">
-                    <span>⚙️ 训练配置</span>
+                    <span>训练配置</span>
                 </h2>
                 
                 <form id="trainingForm">
@@ -338,13 +358,13 @@
                     
                     <div class="training-controls">
                         <button type="submit" class="neon-btn neon-btn-glow" id="startTrainingBtn">
-                            ▶️ 开始训练
+                            开始训练
                         </button>
                         <button type="button" class="neon-btn" id="stopTrainingBtn" disabled>
-                            ⏹️ 停止训练
+                            停止训练
                         </button>
                         <button type="button" class="neon-btn" id="resetTrainingBtn">
-                            ↩️ 重置配置
+                            重置配置
                         </button>
                     </div>
                 </form>
@@ -384,7 +404,7 @@
                 </div>
                 
                 <div class="form-section-title" style="margin-bottom: var(--space-2);">
-                    <span>📝 训练日志</span>
+                    <span>训练日志</span>
                 </div>
                 <div class="training-log" id="trainingLog">
                     <div class="log-entry info">系统就绪，等待训练开始...</div>

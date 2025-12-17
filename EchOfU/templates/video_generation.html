@@ -123,7 +123,7 @@
 
     <div class="page-container">
         <div class="header-section">
-            <h1 class="page-title">🎬 智能视频生成</h1>
+            <h1 class="page-title">智能视频生成</h1>
             <p class="page-subtitle">基于音频驱动的实时视频合成系统</p>
         </div>
 
@@ -132,7 +132,6 @@
             <div class="preview-wrapper">
                 <div class="preview-container video-preview" id="videoPreview">
                     <div class="preview-placeholder">
-                        <div class="preview-icon">📽️</div>
                         <h3>视频预览区</h3>
                         <p>生成的视频将在此处显示</p>
                     </div>
@@ -156,7 +155,7 @@
                 <form id="videoGenForm">
                     <div class="control-group">
                         <div class="control-title">
-                            <span>⚙️ 模型配置</span>
+                            <span>模型配置</span>
                         </div>
                         <div class="control-grid">
                             <div>
@@ -198,7 +197,7 @@
                     
                     <div class="control-group">
                         <div class="control-title">
-                            <span>🎛️ 硬件配置</span>
+                            <span>硬件配置</span>
                         </div>
                         <div class="gpu-selector">
                             <label class="gpu-option">
@@ -218,7 +217,7 @@
                     
                     <div class="control-group">
                         <div class="control-title">
-                            <span>📝 文本输入</span>
+                            <span>文本输入</span>
                         </div>
                         <textarea 
                             class="text-input-area" 
@@ -228,7 +227,7 @@
                     
                     <div class="generate-section">
                         <button type="submit" class="neon-btn neon-btn-glow generate-btn">
-                                    🎥 开始生成视频
+                                    开始生成视频
                                 </button>
                         
                         <div class="progress-section" id="progressSection">
@@ -352,7 +351,7 @@
                 alert('生成失败，请查看控制台');
             } finally {
                 generateBtn.disabled = false;
-                generateBtn.innerHTML = '🎥 重新生成';
+                generateBtn.innerHTML = '重新生成';
                 setTimeout(() => { progressSection.style.display = 'none'; }, 1000);
             }
         });

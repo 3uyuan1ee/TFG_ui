@@ -84,7 +84,7 @@
 
     <div class="page-container">
         <div class="header-section">
-            <h1 class="page-title">🎵 音频克隆</h1>
+            <h1 class="page-title">音频克隆</h1>
             <p class="page-subtitle">基于参考音频进行高质量语音克隆系统</p>
         </div>
 
@@ -94,7 +94,6 @@
                 <!-- 原音频播放器 -->
                 <div class="preview-container" id="originalAudioPlayer">
                     <div class="preview-placeholder">
-                        <div class="preview-icon">🎧</div>
                         <h3>原音频播放器</h3>
                         <p>请输入音频路径后点击加载</p>
                     </div>
@@ -103,7 +102,6 @@
                 <!-- 克隆音频播放器 -->
                 <div class="preview-container" id="clonedAudioPlayer">
                     <div class="preview-placeholder">
-                        <div class="preview-icon">🤖</div>
                         <h3>克隆音频播放器</h3>
                         <p>克隆完成后将在此显示</p>
                     </div>
@@ -128,7 +126,7 @@
                     <!-- 音频克隆设置 -->
                     <div class="control-group">
                         <div class="control-title">
-                            <span>🎯 音频克隆设置</span>
+                            <span>音频克隆设置</span>
                         </div>
                         <div class="control-grid">
                             <div>
@@ -145,7 +143,7 @@
 
                     <div class="action-section">
                         <button type="button" class="neon-btn neon-btn-glow action-btn" id="loadAudioBtn">
-                            📥 加载原音频
+                            加载原音频
                         </button>
                     </div>
 
@@ -154,7 +152,7 @@
                     <!-- 克隆操作 -->
                     <div class="control-group">
                         <div class="control-title">
-                            <span>🔄 克隆操作</span>
+                            <span>克隆操作</span>
                         </div>
                         <div class="control-grid">
                             <div>
@@ -168,7 +166,7 @@
 
                     <div class="action-section">
                         <button type="button" class="neon-btn neon-btn-glow action-btn" id="cloneAudioBtn">
-                            🎯 开始克隆
+                            开始克隆
                         </button>
 
                         <div class="progress-section" id="cloneProgressSection">
@@ -187,7 +185,7 @@
                     <!-- 文本生成 -->
                     <div class="control-group">
                         <div class="control-title">
-                            <span>📝 文本生成</span>
+                            <span>文本生成</span>
                         </div>
                         <div class="control-grid">
                             <div>
@@ -209,7 +207,7 @@
 
                     <div class="action-section">
                         <button type="button" class="neon-btn neon-btn-glow action-btn" id="generateAudioBtn">
-                            ✨ 生成音频
+                            生成音频
                         </button>
 
                         <div class="progress-section" id="generateProgressSection">
@@ -307,7 +305,7 @@
 
             progressSection.style.display = 'block';
             btn.disabled = true;
-            btn.innerHTML = '🔄 克隆中...';
+            btn.innerHTML = '克隆中...';
             cloneStatus.textContent = '克隆中...';
 
             // 模拟进度
@@ -362,7 +360,7 @@
                 alert('克隆失败，请查看控制台');
             } finally {
                 btn.disabled = false;
-                btn.innerHTML = '🎯 开始克隆';
+                btn.innerHTML = '开始克隆';
                 setTimeout(() => { progressSection.style.display = 'none'; }, 2000);
             }
         });
@@ -385,7 +383,7 @@
 
             progressSection.style.display = 'block';
             btn.disabled = true;
-            btn.innerHTML = '✨ 生成中...';
+            btn.innerHTML = '生成中...';
 
             // 模拟进度
             let progress = 0;
@@ -422,7 +420,7 @@
                 alert('生成失败，请查看控制台');
             } finally {
                 btn.disabled = false;
-                btn.innerHTML = '✨ 生成音频';
+                btn.innerHTML = '生成音频';
                 setTimeout(() => { progressSection.style.display = 'none'; }, 2000);
             }
         });
