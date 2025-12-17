@@ -1,0 +1,174 @@
+<!DOCTYPE html>
+<html lang="zh">
+
+<head>
+    <meta charset="UTF-8">
+    <title>音频克隆界面</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+</head>
+
+<body class="subpage-bg">
+    <h2>音频克隆界面</h2>
+    <div class="video-page-container">
+        <!-- 左侧：音频播放区域 -->
+        <div class="video-display">
+            <div style="width: 100%; margin-bottom: 30px;">
+                <h3 style="margin-bottom: 15px; color: #2c3e50;">原音频</h3>
+                <audio id="originalAudio" controls style="width: 100%; margin-bottom: 10px;">
+                    <source src="{{ url_for('static', filename='audios/sample.wav') }}" type="audio/wav">
+                </audio>
+                <div id="originalAudioName" style="text-align: center; color: #7f8c8d; font-size: 14px;">
+                    请选择原始音频文件
+                </div>
+            </div>
+
+            <div style="width: 100%;">
+                <h3 style="margin-bottom: 15px; color: #2c3e50;">克隆后音频</h3>
+                <audio id="clonedAudio" controls style="width: 100%; margin-bottom: 10px;">
+                    <source src="{{ url_for('static', filename='audios/sample.wav') }}" type="audio/wav">
+                </audio>
+                <div id="clonedAudioName" style="text-align: center; color: #7f8c8d; font-size: 14px;">
+                    等待克隆生成...
+                </div>
+            </div>
+        </div>
+
+        <!-- 右侧：参数配置区域 -->
+        <div class="form-section">
+            <!-- 克隆功能区域 -->
+            <div>
+                <h3 style="margin-top: 0; margin-bottom: 20px; color: #2c3e50; font-size: 18px;">音频克隆</h3>
+
+                <div class="form-group">
+                    <label>原音频相对路径</label>
+                    <input type="text" name="original_audio_path" id="originalAudioPath"
+                           placeholder="请输入原音频相对路径">
+                </div>
+
+                <div class="form-group">
+                    <label>音频编号</label>
+                    <input type="text" name="clone_id" id="cloneId"
+                           placeholder="请输入音频编号">
+                </div>
+
+                <button type="button" class="generate-btn" style="background-color: #e74c3c;" onclick="cloneAudio()">
+                    开始克隆
+                </button>
+            </div>
+
+            <!-- 生成功能区域 -->
+            <div style="margin-top: 30px; padding-top: 30px; border-top: 2px solid #ecf0f1;">
+                <h3 style="margin-bottom: 20px; color: #2c3e50; font-size: 18px;">语音生成</h3>
+
+                <div class="form-group">
+                    <label>音频编号</label>
+                    <input type="text" name="generate_id" id="generateId"
+                           placeholder="请输入音频编号">
+                </div>
+
+                <div class="form-group">
+                    <label>需要生成的文本</label>
+                    <textarea name="target_text" id="targetText"
+                              placeholder="请输入需要生成的文本"></textarea>
+                </div>
+
+                <button type="button" class="generate-btn" onclick="generateSpeech()">
+                    生成语音
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // 音频克隆功能
+        function cloneAudio() {
+            const originalPath = document.getElementById('originalAudioPath').value;
+            const cloneId = document.getElementById('cloneId').value;
+
+            if (!originalPath || !cloneId) {
+                alert('请填写完整的音频路径和克隆编号');
+                return;
+            }
+
+            // 更新原音频播放器
+            const originalAudio = document.getElementById('originalAudio');
+            const originalSrc = "/" + originalPath.replace("\\", "/") + '?t=' + new Date().getTime();
+            originalAudio.src = originalSrc;
+            originalAudio.load();
+
+            // 更新文件名显示
+            const fileName = originalPath.split('/').pop();
+            document.getElementById('originalAudioName').textContent = fileName;
+
+            // 发送克隆请求
+            const formData = new FormData();
+            formData.append('original_audio_path', originalPath);
+            formData.append('clone_id', cloneId);
+
+            fetch('/audio_clone', {
+                method: 'POST',
+                body: formData
+            })
+            .then(res => res.json())
+            .then(data => {
+                if (data.status === 'success') {
+                    alert('音频克隆成功！');
+                } else {
+                    alert('音频克隆失败：' + (data.message || '未知错误'));
+                }
+            })
+            .catch(err => {
+                console.error('克隆错误:', err);
+                alert('克隆请求失败');
+            });
+        }
+
+        // 语音生成功能
+        function generateSpeech() {
+            const generateId = document.getElementById('generateId').value;
+            const targetText = document.getElementById('targetText').value;
+
+            if (!generateId || !targetText) {
+                alert('请填写音频编号和目标文本');
+                return;
+            }
+
+            // 发送生成请求
+            const formData = new FormData();
+            formData.append('generate_id', generateId);
+            formData.append('target_text', targetText);
+
+            fetch('/speech_generation', {
+                method: 'POST',
+                body: formData
+            })
+            .then(res => res.json())
+            .then(data => {
+                if (data.status === 'success') {
+                    // 更新克隆音频播放器
+                    const clonedAudio = document.getElementById('clonedAudio');
+                    const newSrc = data.audio_path + '?t=' + new Date().getTime();
+                    clonedAudio.src = newSrc;
+                    clonedAudio.load();
+
+                    // 更新文件名显示
+                    const fileName = data.audio_path.split('/').pop();
+                    document.getElementById('clonedAudioName').textContent = fileName;
+
+                    alert('语音生成成功！');
+
+                    // 自动播放生成的音频
+                    clonedAudio.play().catch(err => console.log('自动播放被阻止:', err));
+                } else {
+                    alert('语音生成失败：' + (data.message || '未知错误'));
+                }
+            })
+            .catch(err => {
+                console.error('生成错误:', err);
+                alert('生成请求失败');
+            });
+        }
+    </script>
+</body>
+
+</html>
