@@ -11,6 +11,35 @@ app = Flask(__name__)
 def index():
     return render_template('index.html')
 
+# 音频克隆界面
+@app.route('/audio_clone', methods=['GET', 'POST'])
+def audio_clone():
+    if request.method == 'POST':
+        data = {
+            "original_audio_path": request.form.get('original_audio_path'),
+            "clone_id": request.form.get('clone_id'),
+        }
+
+        # 这里应该调用音频克隆的后端逻辑
+        # 暂时返回模拟的成功响应
+        return jsonify({'status': 'success', 'message': '音频克隆成功'})
+
+    return render_template('audio_clone.html')
+
+# 语音生成接口
+@app.route('/speech_generation', methods=['POST'])
+def speech_generation():
+    data = {
+        "generate_id": request.form.get('generate_id'),
+        "target_text": request.form.get('target_text'),
+    }
+
+    # 这里应该调用语音生成的后端逻辑
+    # 暂时返回模拟的音频路径
+    audio_path = "/static/voices/generated_speech.wav"
+
+    return jsonify({'status': 'success', 'audio_path': audio_path})
+
 # 视频生成界面
 @app.route('/video_generation', methods=['GET', 'POST'])
 def video_generation():
