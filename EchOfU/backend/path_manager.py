@@ -22,19 +22,22 @@ class PathManager:
         def find_echofu_root(start_dir):
             current_dir = os.path.abspath(start_dir)
 
-            # 如果当前目录名是EchOfU，检查是否有关键目录
+            # 优先检查当前目录是否已经是EchOfU目录，并且包含关键的项目文件
             if os.path.basename(current_dir) == "EchOfU":
-                if (os.path.exists(os.path.join(current_dir, "models")) or
-                    os.path.exists(os.path.join(current_dir, "static"))):
+                # 检查是否包含EchOfU项目特有的目录和文件
+                if (os.path.exists(os.path.join(current_dir, "backend")) and
+                    os.path.exists(os.path.join(current_dir, "app.py")) and
+                    (os.path.exists(os.path.join(current_dir, "models")) or
+                     os.path.exists(os.path.join(current_dir, "static")))):
                     return current_dir
 
             # 如果当前目录包含EchOfU子目录，使用它
             echofu_subdir = os.path.join(current_dir, "EchOfU")
-            if os.path.exists(echofu_subdir) and (
-                os.path.exists(os.path.join(echofu_subdir, "models")) or
-                os.path.exists(os.path.join(echofu_subdir, "static"))
-            ):
-                return echofu_subdir
+            if os.path.exists(echofu_subdir):
+                # 检查子目录是否是真正的EchOfU项目目录
+                if (os.path.exists(os.path.join(echofu_subdir, "backend")) and
+                    os.path.exists(os.path.join(echofu_subdir, "app.py"))):
+                    return echofu_subdir
 
             # 如果已经到达根目录还没找到，返回None
             parent_dir = os.path.dirname(current_dir)

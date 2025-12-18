@@ -21,6 +21,14 @@ from backend.video_generator import generate_video
 from backend.model_trainer import train_model
 from backend.chat_engine import chat_response
 from backend.voice_generator import OpenVoiceService
+from backend.api_handlers import (
+    upload_reference_audio as api_upload_reference_audio,
+    get_reference_audios as api_get_reference_audios,
+    upload_training_video as api_upload_training_video,
+    get_training_videos as api_get_training_videos,
+    get_available_models as api_get_available_models,
+    get_model_details as api_get_model_details
+)
 import psutil
 
 # =============================================================================
@@ -44,9 +52,8 @@ app = Flask(__name__)
 app.config['UPLOAD_FOLDER'] = 'static/uploads'
 app.config['MAX_CONTENT_LENGTH'] = 100 * 1024 * 1024  # 限制上传文件大小为100MB
 
-# 确保必要的目录结构存在
-for folder in ['static/uploads', 'static/audios', 'static/videos', 'static/videos/training', 'static/videos/ref_videos', 'static/images', 'static/history',
-               'static/voices/ref_voices', 'static/voices/res_voices']:
+# 确保必要的目录结构存在（基本目录）
+for folder in [ 'EchOfU/static/audios', 'EchOfU/static/videos',  'EchOfU/static/history']:
     os.makedirs(folder, exist_ok=True)
 
 # =============================================================================
@@ -88,7 +95,7 @@ def video_generation():
             }
 
             # 保存到历史记录文件
-            history_file = 'static/history/video_generation.json'
+            history_file = 'EchOfU/static/history/video_generation.json'
             if os.path.exists(history_file):
                 with open(history_file, 'r') as f:
                     history = json.load(f)
@@ -333,425 +340,33 @@ def get_cloned_audios():
 
 @app.route('/api/upload-reference-audio', methods=['POST'])
 def upload_reference_audio():
-    """上传参考音频文件API - 将音频文件保存到ref_voices目录"""
-    try:
-        # 检查是否有音频文件上传
-        if 'audio' not in request.files:
-            return jsonify({
-                'status': 'error',
-                'message': '没有音频文件'
-            }), 400
-
-        audio_file = request.files['audio']
-        if audio_file.filename == '':
-            return jsonify({
-                'status': 'error',
-                'message': '没有选择文件'
-            }), 400
-
-        # 验证文件类型
-        allowed_extensions = {'.wav', '.mp3', '.m4a', '.flac', '.ogg'}
-        filename = audio_file.filename
-        file_ext = os.path.splitext(filename)[1].lower()
-
-        if file_ext not in allowed_extensions:
-            return jsonify({
-                'status': 'error',
-                'message': f'不支持的文件格式。支持的格式: {", ".join(allowed_extensions)}'
-            }), 400
-
-        # 生成唯一文件名
-        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-        base_name = os.path.splitext(filename)[0]
-        safe_filename = f"{base_name}_{timestamp}{file_ext}"
-
-        # 确保文件名安全（移除特殊字符）
-        safe_filename = ''.join(c for c in safe_filename if c.isalnum() or c in '._-')
-
-        # 保存到ref_voices目录
-        ref_voices_dir = os.path.join('static', 'voices', 'ref_voices')
-        os.makedirs(ref_voices_dir, exist_ok=True)
-
-        save_path = os.path.join(ref_voices_dir, safe_filename)
-        audio_file.save(save_path)
-
-        # 返回相对路径供前端使用
-        relative_path = f"static/voices/ref_voices/{safe_filename}"
-
-        print(f"[API] 参考音频上传成功: {filename} -> {relative_path}")
-
-        return jsonify({
-            'status': 'success',
-            'message': '音频上传成功',
-            'filename': safe_filename,
-            'relative_path': relative_path,
-            'original_name': filename
-        })
-
-    except Exception as e:
-        print(f"[API] 参考音频上传失败: {e}")
-        return jsonify({
-            'status': 'error',
-            'message': f'音频上传失败: {str(e)}'
-        }), 500
+    """上传参考音频文件API - 使用backend模块"""
+    return api_upload_reference_audio()
 
 @app.route('/api/reference-audios', methods=['GET'])
 def get_reference_audios():
-    """获取参考音频文件列表API - 列出ref_voices目录中的所有音频文件"""
-    try:
-        ref_voices_dir = os.path.join('static', 'voices', 'ref_voices')
-
-        if not os.path.exists(ref_voices_dir):
-            return jsonify({
-                'status': 'success',
-                'files': [],
-                'total_count': 0,
-                'message': '参考音频目录不存在'
-            })
-
-        # 支持的音频文件扩展名
-        audio_extensions = {'.wav', '.mp3', '.m4a', '.flac', '.ogg'}
-        audio_files = []
-
-        # 遍历目录获取音频文件
-        for filename in os.listdir(ref_voices_dir):
-            file_path = os.path.join(ref_voices_dir, filename)
-            if os.path.isfile(file_path):
-                file_ext = os.path.splitext(filename)[1].lower()
-                if file_ext in audio_extensions:
-                    # 获取文件信息
-                    stat = os.stat(file_path)
-                    audio_files.append({
-                        'filename': filename,
-                        'relative_path': f"static/voices/ref_voices/{filename}",
-                        'size': stat.st_size,
-                        'created_time': datetime.fromtimestamp(stat.st_ctime).strftime('%Y-%m-%d %H:%M:%S'),
-                        'modified_time': datetime.fromtimestamp(stat.st_mtime).strftime('%Y-%m-%d %H:%M:%S'),
-                        'file_type': file_ext[1:].upper()  # 去掉点号，转为大写
-                    })
-
-        # 按修改时间降序排列（最新的在前）
-        audio_files.sort(key=lambda x: x['modified_time'], reverse=True)
-
-        print(f"[API] 获取到 {len(audio_files)} 个参考音频文件")
-
-        return jsonify({
-            'status': 'success',
-            'files': audio_files,
-            'total_count': len(audio_files)
-        })
-
-    except Exception as e:
-        print(f"[API] 获取参考音频列表失败: {e}")
-        return jsonify({
-            'status': 'error',
-            'message': str(e),
-            'files': [],
-            'total_count': 0
-        }), 500
+    """获取参考音频文件列表API - 使用backend模块"""
+    return api_get_reference_audios()
 
 @app.route('/api/upload-training-video', methods=['POST'])
 def upload_training_video():
-    """上传训练视频文件API - 将视频文件保存到ref_videos目录"""
-    try:
-        # 检查是否有视频文件上传
-        if 'video' not in request.files:
-            return jsonify({
-                'status': 'error',
-                'message': '没有视频文件'
-            }), 400
-
-        video_file = request.files['video']
-        if video_file.filename == '':
-            return jsonify({
-                'status': 'error',
-                'message': '没有选择文件'
-            }), 400
-
-        # 验证文件类型
-        allowed_extensions = {'.mp4', '.avi', '.mov', '.mkv', '.flv', '.webm'}
-        filename = video_file.filename
-        file_ext = os.path.splitext(filename)[1].lower()
-
-        if file_ext not in allowed_extensions:
-            return jsonify({
-                'status': 'error',
-                'message': f'不支持的视频格式。支持的格式: {", ".join(allowed_extensions)}'
-            }), 400
-
-        # 检查文件大小（限制为100MB）
-        file_size = 0
-        video_file.seek(0, os.SEEK_END)
-        file_size = video_file.tell()
-        video_file.seek(0, os.SEEK_SET)
-
-        max_size = 100 * 1024 * 1024  # 100MB
-        if file_size > max_size:
-            return jsonify({
-                'status': 'error',
-                'message': f'文件大小超过限制。最大支持100MB，当前文件大小: {file_size / (1024*1024):.2f}MB'
-            }), 400
-
-        # 生成唯一文件名
-        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-        base_name = os.path.splitext(filename)[0]
-        safe_filename = f"{base_name}_{timestamp}{file_ext}"
-
-        # 确保文件名安全（移除特殊字符）
-        safe_filename = ''.join(c for c in safe_filename if c.isalnum() or c in '._-')
-
-        # 保存到ref_videos目录（训练视频即参考视频）
-        ref_videos_dir = os.path.join('static', 'videos', 'ref_videos')
-        os.makedirs(ref_videos_dir, exist_ok=True)
-
-        save_path = os.path.join(ref_videos_dir, safe_filename)
-        video_file.save(save_path)
-
-        # 返回相对路径供前端使用
-        relative_path = f"static/videos/ref_videos/{safe_filename}"
-
-        print(f"[API] 训练视频上传成功: {filename} -> {relative_path}")
-
-        return jsonify({
-            'status': 'success',
-            'message': '视频上传成功',
-            'filename': safe_filename,
-            'relative_path': relative_path,
-            'original_name': filename,
-            'file_size': file_size,
-            'file_type': file_ext[1:].upper()
-        })
-
-    except Exception as e:
-        print(f"[API] 训练视频上传失败: {e}")
-        return jsonify({
-            'status': 'error',
-            'message': f'视频上传失败: {str(e)}'
-        }), 500
+    """上传训练视频文件API - 使用backend模块"""
+    return api_upload_training_video()
 
 @app.route('/api/training-videos', methods=['GET'])
 def get_training_videos():
-    """获取训练视频文件列表API - 列出ref_videos目录中的所有视频文件"""
-    try:
-        ref_videos_dir = os.path.join('static', 'videos', 'ref_videos')
-
-        if not os.path.exists(ref_videos_dir):
-            return jsonify({
-                'status': 'success',
-                'files': [],
-                'total_count': 0,
-                'message': '参考视频目录不存在'
-            })
-
-        # 支持的视频文件扩展名
-        video_extensions = {'.mp4', '.avi', '.mov', '.mkv', '.flv', '.webm'}
-        video_files = []
-
-        # 遍历目录获取视频文件
-        for filename in os.listdir(ref_videos_dir):
-            file_path = os.path.join(ref_videos_dir, filename)
-            if os.path.isfile(file_path):
-                file_ext = os.path.splitext(filename)[1].lower()
-                if file_ext in video_extensions:
-                    # 获取文件信息
-                    stat = os.stat(file_path)
-                    video_files.append({
-                        'filename': filename,
-                        'relative_path': f"static/videos/ref_videos/{filename}",
-                        'size': stat.st_size,
-                        'size_mb': round(stat.st_size / (1024 * 1024), 2),
-                        'created_time': datetime.fromtimestamp(stat.st_ctime).strftime('%Y-%m-%d %H:%M:%S'),
-                        'modified_time': datetime.fromtimestamp(stat.st_mtime).strftime('%Y-%m-%d %H:%M:%S'),
-                        'file_type': file_ext[1:].upper()
-                    })
-
-        # 按修改时间降序排列（最新的在前）
-        video_files.sort(key=lambda x: x['modified_time'], reverse=True)
-
-        print(f"[API] 获取到 {len(video_files)} 个训练视频文件")
-
-        return jsonify({
-            'status': 'success',
-            'files': video_files,
-            'total_count': len(video_files)
-        })
-
-    except Exception as e:
-        print(f"[API] 获取训练视频列表失败: {e}")
-        return jsonify({
-            'status': 'error',
-            'message': str(e),
-            'files': [],
-            'total_count': 0
-        }), 500
+    """获取训练视频文件列表API - 使用backend模块"""
+    return api_get_training_videos()
 
 @app.route('/api/available-models', methods=['GET'])
 def get_available_models():
-    """获取可用模型列表API - 从SyncTalk和ER-NeRF目录获取所有可用模型"""
-    try:
-        available_models = []
-
-        # 1. 获取SyncTalk模型
-        synctalk_dir = './models/SyncTalk'
-        if os.path.exists(synctalk_dir):
-            for item in os.listdir(synctalk_dir):
-                item_path = os.path.join(synctalk_dir, item)
-                if os.path.isdir(item_path):
-                    # 检查目录是否包含模型文件
-                    model_files = [f for f in os.listdir(item_path)
-                                if f.endswith(('.pth', '.ckpt', '.pt', '.bin', '.safetensors'))]
-                    if model_files:
-                        stat = os.stat(item_path)
-                        available_models.append({
-                            'name': item,
-                            'type': 'SyncTalk',
-                            'path': f"SyncTalk/model/{item}",
-                            'model_files_count': len(model_files),
-                            'created_time': datetime.fromtimestamp(stat.st_ctime).strftime('%Y-%m-%d %H:%M:%S'),
-                            'description': f'SyncTalk模型 - 包含{len(model_files)}个模型文件'
-                        })
-
-        # 2. 获取ER-NeRF模型
-        ernef_dir = './models/ER-NeRF'
-        if os.path.exists(ernef_dir):
-            for item in os.listdir(ernef_dir):
-                item_path = os.path.join(ernef_dir, item)
-                if os.path.isdir(item_path):
-                    # 检查目录是否包含模型文件
-                    model_files = [f for f in os.listdir(item_path)
-                                if f.endswith(('.pth', '.ckpt', '.pt', '.bin', '.safetensors'))]
-                    if model_files:
-                        stat = os.stat(item_path)
-                        available_models.append({
-                            'name': item,
-                            'type': 'ER-NeRF',
-                            'path': f"models/ER-NeRF/{item}",
-                            'model_files_count': len(model_files),
-                            'created_time': datetime.fromtimestamp(stat.st_ctime).strftime('%Y-%m-%d %H:%M:%S'),
-                            'description': f'ER-NeRF模型 - 包含{len(model_files)}个模型文件'
-                        })
-
-        # 3. 添加默认的基础模型选项（如果没有找到任何模型）
-        if not available_models:
-            available_models.append({
-                'name': 'default',
-                'type': 'SyncTalk',
-                'path': 'SyncTalk/model/default',
-                'model_files_count': 0,
-                'created_time': datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
-                'description': '默认SyncTalk模型（需要手动配置）'
-            })
-            available_models.append({
-                'name': 'default',
-                'type': 'ER-NeRF',
-                'path': 'models/ER-NeRF/default',
-                'model_files_count': 0,
-                'created_time': datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
-                'description': '默认ER-NeRF模型（需要手动配置）'
-            })
-
-        # 按类型和名称排序
-        available_models.sort(key=lambda x: (x['type'], x['name']))
-
-        print(f"[API] 获取到 {len(available_models)} 个可用模型")
-
-        return jsonify({
-            'status': 'success',
-            'models': available_models,
-            'total_count': len(available_models)
-        })
-
-    except Exception as e:
-        print(f"[API] 获取可用模型列表失败: {e}")
-        return jsonify({
-            'status': 'error',
-            'message': str(e),
-            'models': [],
-            'total_count': 0
-        }), 500
+    """获取可用模型列表API - 使用backend模块"""
+    return api_get_available_models()
 
 @app.route('/api/model-details/<model_type>/<model_name>', methods=['GET'])
 def get_model_details(model_type, model_name):
-    """获取模型详细信息API - 显示指定模型的详细文件信息"""
-    try:
-        # 根据模型类型确定基础路径
-        if model_type == 'SyncTalk':
-            base_path = f'./SyncTalk/model/{model_name}'
-        elif model_type == 'ER-NeRF':
-            base_path = f'./models/ER-NeRF/{model_name}'
-        else:
-            return jsonify({
-                'status': 'error',
-                'message': f'不支持的模型类型: {model_type}'
-            }), 400
-
-        if not os.path.exists(base_path):
-            return jsonify({
-                'status': 'error',
-                'message': f'模型目录不存在: {base_path}'
-            }), 404
-
-        # 获取目录下所有文件
-        model_files = []
-        total_size = 0
-
-        for root, dirs, files in os.walk(base_path):
-            for file in files:
-                file_path = os.path.join(root, file)
-                relative_path = os.path.relpath(file_path, base_path)
-                stat = os.stat(file_path)
-
-                file_size = stat.st_size
-                total_size += file_size
-
-                # 判断文件类型
-                file_ext = os.path.splitext(file)[1].lower()
-                if file_ext in ['.pth', '.ckpt', '.pt', '.bin', '.safetensors']:
-                    file_type = 'model_weight'
-                elif file_ext in ['.json', '.yaml', '.yml', '.txt']:
-                    file_type = 'config'
-                elif file_ext in ['.py']:
-                    file_type = 'code'
-                else:
-                    file_type = 'other'
-
-                model_files.append({
-                    'filename': file,
-                    'relative_path': relative_path,
-                    'size': file_size,
-                    'size_mb': round(file_size / (1024 * 1024), 2),
-                    'file_type': file_type,
-                    'created_time': datetime.fromtimestamp(stat.st_ctime).strftime('%Y-%m-%d %H:%M:%S'),
-                    'modified_time': datetime.fromtimestamp(stat.st_mtime).strftime('%Y-%m-%d %H:%M:%S')
-                })
-
-        # 获取目录信息
-        dir_stat = os.stat(base_path)
-
-        model_details = {
-            'name': model_name,
-            'type': model_type,
-            'path': base_path,
-            'total_files': len(model_files),
-            'total_size_mb': round(total_size / (1024 * 1024), 2),
-            'created_time': datetime.fromtimestamp(dir_stat.st_ctime).strftime('%Y-%m-%d %H:%M:%S'),
-            'modified_time': datetime.fromtimestamp(dir_stat.st_mtime).strftime('%Y-%m-%d %H:%M:%S'),
-            'files': model_files
-        }
-
-        print(f"[API] 获取模型详细信息: {model_type}/{model_name} - {len(model_files)}个文件")
-
-        return jsonify({
-            'status': 'success',
-            'model_details': model_details
-        })
-
-    except Exception as e:
-        print(f"[API] 获取模型详细信息失败: {e}")
-        return jsonify({
-            'status': 'error',
-            'message': str(e)
-        }), 500
+    """获取模型详细信息API - 使用backend模块"""
+    return api_get_model_details(model_type, model_name)
 
 @app.route('/chat_system', methods=['GET', 'POST'])
 def chat_system():
@@ -800,7 +415,7 @@ def save_audio():
         return jsonify({'status': 'error', 'message': '没有选择文件'})
 
     # 保存音频文件到指定路径
-    audio_path = './static/audios/input.wav'
+    audio_path = 'EchOfU/static/audios/input.wav'
     audio_file.save(audio_path)
 
     return jsonify({'status': 'success', 'message': '音频保存成功', 'path': audio_path})
