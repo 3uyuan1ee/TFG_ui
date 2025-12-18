@@ -6,7 +6,7 @@ import torch
 from datetime import datetime
 from openvoice.api import BaseSpeakerTTS, ToneColorConverter
 from openvoice import se_extractor
-from path_manager import PathManager
+from .path_manager import PathManager
 
 
 class ModelDownloader:
