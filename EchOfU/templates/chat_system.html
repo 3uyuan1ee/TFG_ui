@@ -936,56 +936,7 @@
             }
         });
         
-        // 初始化音频选择框
-        async function initializeAudioSelects() {
-            try {
-                // 初始化语音克隆选择框 - 强制刷新以获取最新数据
-                const voiceCloneSelect = document.getElementById('voiceCloneSelect');
-                if (voiceCloneSelect) {
-                    await window.AudioUtils.fillAudioSelect('#voiceCloneSelect', '请选择克隆音频', '', true);
-                }
-            } catch (error) {
-                console.error('初始化音频选择框失败:', error);
-            }
-        }
-
-        // 强制刷新音频数据
-        async function refreshAudioData() {
-            try {
-                console.log('正在刷新音频数据...');
-                await window.AudioUtils.refreshAllAudioSelects();
-                console.log('音频数据刷新完成');
-
-                // 显示刷新成功提示
-                const btn = document.getElementById('refreshBtn');
-                if (btn) {
-                    const originalText = btn.innerHTML;
-                    btn.innerHTML = ' 已刷新';
-                    btn.style.color = 'var(--neon-green)';
-
-                    setTimeout(() => {
-                        btn.innerHTML = originalText;
-                        btn.style.color = '';
-                    }, 2000);
-                }
-            } catch (error) {
-                console.error('刷新音频数据失败:', error);
-
-                // 显示刷新失败提示
-                const btn = document.getElementById('refreshBtn');
-                if (btn) {
-                    const originalText = btn.innerHTML;
-                    btn.innerHTML = ' 刷新失败';
-                    btn.style.color = 'var(--neon-red)';
-
-                    setTimeout(() => {
-                        btn.innerHTML = originalText;
-                        btn.style.color = '';
-                    }, 2000);
-                }
-            }
-        }
-
+        
         // 模型刷新按钮事件监听器
         document.getElementById('refreshModelBtn').addEventListener('click', async function() {
             const btn = this;
@@ -1020,6 +971,24 @@
             }
         });
 
+        // 简化的音频刷新函数
+        async function refreshAudioList() {
+            const response = await fetch('/api/cloned-audios');
+            const data = await response.json();
+
+            if (data.status === 'success') {
+                const voiceSelect = document.getElementById('voiceCloneSelect');
+                voiceSelect.innerHTML = '<option value="">请选择克隆音频</option>';
+
+                data.audios.forEach(audio => {
+                    const option = document.createElement('option');
+                    option.value = audio.id;
+                    option.textContent = audio.id; // 简化显示，只显示ID
+                    voiceSelect.appendChild(option);
+                });
+            }
+        }
+
         // 音频刷新按钮事件监听器
         document.getElementById('refreshAudioBtn').addEventListener('click', async function() {
             const btn = this;
@@ -1041,7 +1010,7 @@
                     btn.style.color = '';
                 }, 2000);
             } catch (error) {
-                console.error('刷新音频列表失败:', error);
+                console.error('刷新克隆音频列表失败:', error);
 
                 btn.innerHTML = '刷新失败';
                 btn.style.color = 'var(--neon-red)';
@@ -1054,8 +1023,8 @@
             }
         });
 
-        // 初始化
-        window.addEventListener('load', () => {
+        // 页面加载时初始化
+        document.addEventListener('DOMContentLoaded', function() {
             initWaveform();
             loadModels();
             loadClonedAudios();
