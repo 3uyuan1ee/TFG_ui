@@ -36,9 +36,9 @@ class TestVoiceSynthesis(unittest.TestCase):
         self.project_root = project_root
         self.test_audio_file = self.project_root / "static/voices/ref_voices/Test_1.mp4"
 
-        # 初始化服务实例
+        # 初始化服务实例（使用标准单例方法）
         try:
-            self.ov_service = OpenVoiceService()
+            self.ov_service = OpenVoiceService.get_instance()
             print("✅ OpenVoice服务初始化成功")
         except Exception as e:
             print(f"⚠️ OpenVoice服务初始化失败: {e}")
@@ -187,8 +187,8 @@ class TestVoiceSynthesis(unittest.TestCase):
             print("🔧 测试OpenVoice服务初始化...")
 
             # 创建服务实例（测试单例模式）
-            service1 = OpenVoiceService()
-            service2 = OpenVoiceService()
+            service1 = OpenVoiceService.get()
+            service2 = OpenVoiceService.get()
 
             print(f"🔍 服务1 ID: {id(service1)}")
             print(f"🔍 服务2 ID: {id(service2)}")

@@ -2,10 +2,10 @@ import speech_recognition as sr
 from zhipuai import ZhipuAI
 import os
 import shutil
-from path_manager import PathManager
-from voice_generator import OpenVoiceService
+from .path_manager import PathManager
+from .voice_generator import OpenVoiceService
 # 需要导入 video_generator 中的函数来生成最终视频
-from video_generator import generate_video
+from .video_generator import generate_video
 
 def chat_response(data):
     """
@@ -49,7 +49,7 @@ def chat_response(data):
 
     # 3. 语音合成 (OpenVoice)
     # 虽然 OpenVoiceService 内部可能也有路径管理，但为了统一结果存放，我们这里进行调度
-    ov = OpenVoiceService()
+    ov = OpenVoiceService.get_instance()
 
     # 获取前端传递的 speaker_id，如果没传则默认
     speaker_id = data.get('speaker_id', 'default')

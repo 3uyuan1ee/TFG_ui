@@ -1,7 +1,7 @@
 import os
 import subprocess
 import shutil
-from path_manager import PathManager
+from .path_manager import PathManager
 
 def train_model(data):
     """

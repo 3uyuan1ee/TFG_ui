@@ -86,7 +86,8 @@ class TestOpenVoiceService(unittest.TestCase):
 
             from voice_generator import OpenVoiceService
 
-            service = OpenVoiceService()
+            OpenVoiceService.reset_instance()
+            service = OpenVoiceService.get_instance()
             self.assertEqual(service.device, "cpu")
 
     @patch('voice_generator.torch.cuda.is_available')
@@ -100,7 +101,8 @@ class TestOpenVoiceService(unittest.TestCase):
 
             from voice_generator import OpenVoiceService
 
-            service = OpenVoiceService()
+            OpenVoiceService.reset_instance()
+            service = OpenVoiceService.get_instance()
             self.assertEqual(service.device, "cuda")
 
     @patch('voice_generator.ToneColorConverter')
@@ -113,7 +115,8 @@ class TestOpenVoiceService(unittest.TestCase):
 
         from voice_generator import OpenVoiceService
 
-        service = OpenVoiceService()
+        OpenVoiceService.reset_instance()
+        service = OpenVoiceService.get_instance()
 
         # 验证转换器被初始化
         self.assertIsNotNone(service.tone_converter)
@@ -123,7 +126,8 @@ class TestOpenVoiceService(unittest.TestCase):
         """测试目录创建功能"""
         from voice_generator import OpenVoiceService
 
-        service = OpenVoiceService()
+        OpenVoiceService.reset_instance()
+        service = OpenVoiceService.get_instance()
         service.ensure_directories()
 
         # 验证所有必要的目录都已创建
@@ -135,7 +139,8 @@ class TestOpenVoiceService(unittest.TestCase):
         """测试模型文件检查"""
         from voice_generator import OpenVoiceService
 
-        service = OpenVoiceService()
+        OpenVoiceService.reset_instance()
+        service = OpenVoiceService.get_instance()
 
         # 当模型文件存在时
         self.assertTrue(service.check_models_exist())
@@ -150,7 +155,8 @@ class TestOpenVoiceService(unittest.TestCase):
         """测试加载空的说话人特征"""
         from voice_generator import OpenVoiceService
 
-        service = OpenVoiceService()
+        OpenVoiceService.reset_instance()
+        service = OpenVoiceService.get_instance()
         features = service.load_speaker_features()
 
         self.assertEqual(features, {})
@@ -174,7 +180,8 @@ class TestOpenVoiceService(unittest.TestCase):
         # 创建假的特征文件
         torch.save({"se": torch.randn(1, 256)}, "models/OpenVoice/speaker1_se.pth")
 
-        service = OpenVoiceService()
+        OpenVoiceService.reset_instance()
+        service = OpenVoiceService.get_instance()
         features = service.load_speaker_features()
 
         self.assertIn("speaker1", features)
@@ -184,7 +191,8 @@ class TestOpenVoiceService(unittest.TestCase):
         """测试保存说话人特征"""
         from voice_generator import OpenVoiceService
 
-        service = OpenVoiceService()
+        OpenVoiceService.reset_instance()
+        service = OpenVoiceService.get_instance()
         test_se = torch.randn(1, 256)
 
         service.save_speaker_feature("test_speaker", "test.wav", test_se)
@@ -206,7 +214,8 @@ class TestOpenVoiceService(unittest.TestCase):
         """测试列出空的说话人列表"""
         from voice_generator import OpenVoiceService
 
-        service = OpenVoiceService()
+        OpenVoiceService.reset_instance()
+        service = OpenVoiceService.get_instance()
         speakers = service.list_available_speakers()
         self.assertEqual(speakers, [])
 
@@ -214,7 +223,8 @@ class TestOpenVoiceService(unittest.TestCase):
         """测试列出有数据的说话人列表"""
         from voice_generator import OpenVoiceService
 
-        service = OpenVoiceService()
+        OpenVoiceService.reset_instance()
+        service = OpenVoiceService.get_instance()
 
         # 模拟有说话人特征
         service.speaker_features = {
@@ -235,7 +245,8 @@ class TestOpenVoiceService(unittest.TestCase):
 
         from voice_generator import OpenVoiceService
 
-        service = OpenVoiceService()
+        OpenVoiceService.reset_instance()
+        service = OpenVoiceService.get_instance()
 
         # 创建测试音频文件
         test_audio_path = "test_audio.wav"
@@ -259,7 +270,8 @@ class TestOpenVoiceService(unittest.TestCase):
 
         from voice_generator import OpenVoiceService
 
-        service = OpenVoiceService()
+        OpenVoiceService.reset_instance()
+        service = OpenVoiceService.get_instance()
         service.tts_model = None  # 确保TTS模型为None
 
         result = service.generate_base_speech("test text", "output.wav")
@@ -271,7 +283,8 @@ class TestOpenVoiceService(unittest.TestCase):
         """测试文件下载进度显示"""
         from voice_generator import OpenVoiceService
 
-        service = OpenVoiceService()
+        OpenVoiceService.reset_instance()
+        service = OpenVoiceService.get_instance()
 
         # Mock requests
         with patch('requests.get') as mock_get:
@@ -303,7 +316,8 @@ class TestOpenVoiceService(unittest.TestCase):
         """测试ZIP文件解压"""
         from voice_generator import OpenVoiceService
 
-        service = OpenVoiceService()
+        OpenVoiceService.reset_instance()
+        service = OpenVoiceService.get_instance()
 
         # 创建一个假的ZIP文件
         import zipfile
@@ -419,7 +433,8 @@ class TestErrorHandling(unittest.TestCase):
 
         from voice_generator import OpenVoiceService
 
-        service = OpenVoiceService()
+        OpenVoiceService.reset_instance()
+        service = OpenVoiceService.get_instance()
 
         # 应该回退到默认状态
         self.assertIsNone(service.tts_model)
@@ -431,7 +446,8 @@ class TestErrorHandling(unittest.TestCase):
         """测试回退到默认状态"""
         from voice_generator import OpenVoiceService
 
-        service = OpenVoiceService()
+        OpenVoiceService.reset_instance()
+        service = OpenVoiceService.get_instance()
         service.fallback_to_default_state()
 
         self.assertIsNone(service.tts_model)

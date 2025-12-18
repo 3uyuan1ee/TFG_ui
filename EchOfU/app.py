@@ -211,8 +211,8 @@ def audio_clone():
                         'message': '缺少必要参数：原音频路径和目标音频ID'
                     }), 400
 
-            # 创建OpenVoice服务实例（单例模式）
-            ov_service = OpenVoiceService()
+            # 创建OpenVoice服务实例（使用标准单例方法）
+            ov_service = OpenVoiceService.get_instance()
 
             if data['generate_text']:
                 # ==================== 生成模式：使用已有特征生成音频 ====================
@@ -305,7 +305,7 @@ def get_cloned_audios():
     """获取已克隆的音频列表API - 为页面提供数据"""
     try:
         # 使用OpenVoiceService获取实际已保存的说话人特征
-        ov_service = OpenVoiceService()
+        ov_service = OpenVoiceService.get_instance()
         available_speakers = ov_service.list_available_speakers()
 
         # 获取说话人特征信息

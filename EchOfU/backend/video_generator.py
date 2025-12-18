@@ -4,8 +4,8 @@ import subprocess
 import shutil
 import librosa
 import soundfile as sf
-from path_manager import PathManager
-from voice_generator import OpenVoiceService
+from .path_manager import PathManager
+from .voice_generator import OpenVoiceService
 
 def generate_video(data):
     """
@@ -24,9 +24,9 @@ def generate_video(data):
     res_voices_dir = pm.ensure_directory(pm.get_res_voice_path())
     res_videos_dir = pm.ensure_directory(pm.get_res_video_path())
 
-    # 实例化 OpenVoice 服务
+    # 实例化 OpenVoice 服务（使用标准单例方法）
     try:
-        ov = OpenVoiceService()
+        ov = OpenVoiceService.get_instance()
     except Exception as e:
         print(f"[backend.video_generator] OpenVoice服务初始化警告: {e}")
         ov = None
