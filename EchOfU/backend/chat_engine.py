@@ -35,7 +35,7 @@ def chat_response(data):
 
     # ToDo : 增加用户选择语音的选项（前端需要实现）
 
-    ov=OpenVoiceService
+    ov=OpenVoiceService()
 
     # ToDo : 与前段对接数据格式，注意app.py中传过来的data格式
     specker_id = data['speaker_id']
@@ -117,4 +117,5 @@ def get_ai_response(input_text, output_text, api_key, model):
         file.write(output)
 
     print(f"答复已保存到: {output_text}")
+
     return output
