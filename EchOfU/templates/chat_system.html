@@ -41,21 +41,15 @@
         
         .chat-main-grid {
             display: grid;
-            grid-template-columns: 1fr 2fr 1fr;
+            grid-template-columns: 1fr 1fr;
             gap: var(--space-4);
-            height: calc(100vh - 200px);
+            min-height: auto;
+            margin-bottom: var(--space-4);
         }
-        
+
         @media (max-width: 1200px) {
             .chat-main-grid {
-                grid-template-columns: 1fr 1fr;
-            }
-        }
-        
-        @media (max-width: 768px) {
-            .chat-main-grid {
                 grid-template-columns: 1fr;
-                height: auto;
             }
         }
         
@@ -437,77 +431,7 @@
         </div>
         
         <div class="chat-main-grid">
-            <!-- 语音输入区域 -->
-            <div class="voice-section">
-                <div class="voice-recorder floating-card">
-                    <div class="voice-waveform">
-                        <canvas class="waveform-canvas" id="waveform"></canvas>
-                    </div>
-                    
-                    <div class="voice-controls">
-                        <button class="record-btn" id="recordBtn">
-                            <span id="recordIcon">麦克风</span>
-                            <span id="recordText" style="margin-top: 4px;">开始录音</span>
-                        </button>
-                        
-                        <div class="record-status" id="recordStatus">
-                            准备录音
-                        </div>
-                        
-                        <div class="data-indicator">
-                            <span class="indicator-label">录音时长</span>
-                            <span class="indicator-value" id="recordTimer">00:00</span>
-                        </div>
-                    </div>
-                </div>
-                
-                <div class="config-item">
-                    <div class="config-label">音频质量</div>
-                    <div class="neon-progress" style="height: 4px;">
-                        <div class="neon-progress-bar" style="width: 85%"></div>
-                    </div>
-                </div>
-            </div>
-            
-            <!-- 对话展示区域 -->
-            <div class="chat-display">
-                <div class="chat-video floating-card">
-                    <video class="video-player" id="chatVideo" poster="{{ url_for('static', filename='images/video-poster.jpg') }}">
-                        <source id="videoSource" src="" type="video/mp4">
-                    </video>
-                    
-                    <div class="video-overlay">
-                        <div class="data-indicator" style="background: transparent; padding: 0;">
-                            <span class="indicator-label">当前对话</span>
-                            <span class="indicator-value">实时生成中...</span>
-                        </div>
-                    </div>
-                    
-                    <div class="video-controls" style="position: absolute; top: 12px; right: 12px; display: flex; gap: 8px;">
-                        <button class="neon-btn" id="fullscreenBtn" style="padding: 4px 8px; font-size: 12px;">
-                            全屏
-                        </button>
-                        <button class="neon-btn" id="downloadBtn" style="padding: 4px 8px; font-size: 12px;">
-                            下载
-                        </button>
-                    </div>
-                </div>
-                
-                <div class="chat-messages floating-card">
-                    <h3 class="config-title" style="margin-top: 0;">
-                        <span>对话记录</span>
-                    </h3>
-                    
-                    <div class="message-list" id="messageList">
-                        <div class="message ai">
-                            <div class="config-value">你好！我是AI助手，可以和我进行语音对话。</div>
-                            <div class="message-time">刚刚</div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-            
-            <!-- 配置区域 -->
+            <!-- 左边：配置区域 -->
             <div class="config-section floating-card">
                 <div class="config-group">
                     <h3 class="config-title">
@@ -516,19 +440,26 @@
                     <div class="config-items">
                         <div class="config-item">
                             <div class="config-label">模型名称</div>
-                            <select class="neon-input" id="modelSelect" style="width: 100%;">
-                                <option value="SyncTalk" selected>SyncTalk</option>
-                                <option value="ER_NeRF">ER_NeRF</option>
+                            <select class="neon-input" name="model_name" id="modelSelect" style="width: 100%;">
+                                <option value="ER-NeRF" selected>ER-NeRF</option>
+                                <option value="SyncTalk">SyncTalk</option>
                             </select>
                         </div>
-                        
+
                         <div class="config-item">
-                            <div class="config-label">模型路径</div>
-                            <input type="text" class="neon-input" value="/SyncTalk/modelwide" id="modelPath" style="width: 100%;">
+                            <div class="config-label">可用模型</div>
+                            <div style="display: flex; gap: var(--space-2); align-items: stretch;">
+                                <select class="neon-input" name="model_param" id="modelPath" style="flex: 1;">
+                                    <option value="">请选择模型</option>
+                                </select>
+                                <button class="neon-btn neon-btn-sm" id="refreshModelBtn" title="刷新模型列表">
+                                    刷新
+                                </button>
+                            </div>
                         </div>
                     </div>
                 </div>
-                
+
                 <div class="config-group">
                     <h3 class="config-title">
                         <span>参数设置</span>
@@ -536,15 +467,20 @@
                     <div class="config-items">
                         <div class="config-item">
                             <div class="config-label">克隆音频编号</div>
-                            <select class="neon-input" name="ref_audio_id" id="voiceCloneSelect" style="width: 100%;">
-                                <option value="">请选择克隆音频</option>
-                                <!-- 选项将通过JavaScript从后端加载 -->
-                            </select>
+                            <div style="display: flex; gap: var(--space-2); align-items: stretch;">
+                                <select class="neon-input" name="ref_audio_id" id="voiceCloneSelect" style="flex: 1;">
+                                    <option value="">请选择克隆音频</option>
+                                    <!-- 选项将通过JavaScript从后端加载 -->
+                                </select>
+                                <button class="neon-btn neon-btn-sm" id="refreshAudioBtn" title="刷新音频列表">
+                                    刷新
+                                </button>
+                            </div>
                             <small style="color: var(--text-secondary); font-size: 0.875rem; margin-top: var(--space-1); display: block;">
                                 选择已克隆的音频编号
                             </small>
                         </div>
-                        
+
                         <div class="config-item">
                             <div class="config-label">API接口</div>
                             <select class="neon-input" id="apiSelect" style="width: 100%;">
@@ -553,7 +489,7 @@
                                 <option value="claude">Claude</option>
                             </select>
                         </div>
-                        
+
                         <div class="config-item">
                             <div class="config-label">响应速度</div>
                             <div class="neon-progress">
@@ -562,7 +498,7 @@
                         </div>
                     </div>
                 </div>
-                
+
                 <div class="config-group">
                     <h3 class="config-title">
                         <span>📊 系统状态</span>
@@ -582,19 +518,80 @@
                         </div>
                     </div>
                 </div>
-                
-                <div class="button-row">
-                    <button class="neon-btn neon-btn-glow start-chat-btn" id="startChatBtn">
-                        开始对话
-                    </button>
 
-                    <button class="neon-btn action-btn" id="refreshBtn">
-                        刷新音频列表
-                    </button>
-                </div>
+                <button class="neon-btn neon-btn-glow start-chat-btn" id="startChatBtn">
+                    开始对话
+                </button>
 
                 <div class="time-estimate">
                     预计生成时间：10-30秒
+                </div>
+            </div>
+
+            <!-- 右边：视频、对话记录和录音控制 -->
+            <div class="right-section" style="display: flex; flex-direction: column; gap: var(--space-4);">
+                <!-- 视频播放区域 -->
+                <div class="chat-video floating-card">
+                    <video class="video-player" id="chatVideo" poster="{{ url_for('static', filename='images/video-poster.jpg') }}">
+                        <source id="videoSource" src="" type="video/mp4">
+                    </video>
+
+                    <div class="video-overlay">
+                        <div class="data-indicator" style="background: transparent; padding: 0;">
+                            <span class="indicator-label">当前对话</span>
+                            <span class="indicator-value">实时生成中...</span>
+                        </div>
+                    </div>
+
+                    <div class="video-controls" style="position: absolute; top: 12px; right: 12px; display: flex; gap: 8px;">
+                        <button class="neon-btn" id="fullscreenBtn" style="padding: 4px 8px; font-size: 12px;">
+                            全屏
+                        </button>
+                        <button class="neon-btn" id="downloadBtn" style="padding: 4px 8px; font-size: 12px;">
+                            下载
+                        </button>
+                    </div>
+                </div>
+
+                <!-- 对话记录区域 -->
+                <div class="chat-messages floating-card">
+                    <h3 class="config-title" style="margin-top: 0;">
+                        <span>对话记录</span>
+                    </h3>
+
+                    <div class="message-list" id="messageList">
+                        <div class="message ai">
+                            <div class="config-value">你好！我是AI助手，可以和我进行语音对话。</div>
+                            <div class="message-time">刚刚</div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 录音控制区域 -->
+                <div class="voice-recorder floating-card" style="padding: var(--space-3);">
+                    <h3 class="config-title" style="margin-top: 0; margin-bottom: var(--space-3);">
+                        <span>🎤 录音控制</span>
+                    </h3>
+
+                    <div class="voice-waveform" style="height: 80px; margin-bottom: var(--space-3);">
+                        <canvas class="waveform-canvas" id="waveform"></canvas>
+                    </div>
+
+                    <div class="voice-controls" style="gap: var(--space-2);">
+                        <button class="record-btn" id="recordBtn" style="width: 60px; height: 60px; font-size: 12px;">
+                            <span id="recordIcon">麦克风</span>
+                            <span id="recordText" style="margin-top: 2px; font-size: 10px;">开始录音</span>
+                        </button>
+
+                        <div class="record-status" id="recordStatus" style="font-size: 0.875rem;">
+                            准备录音
+                        </div>
+
+                        <div class="data-indicator" style="padding: var(--space-1) var(--space-2);">
+                            <span class="indicator-label" style="font-size: 0.75rem;">录音时长</span>
+                            <span class="indicator-value" id="recordTimer" style="font-size: 0.875rem;">00:00</span>
+                        </div>
+                    </div>
                 </div>
             </div>
         </div>
@@ -765,35 +762,89 @@
             }
         }
         
+        // 加载模型列表
+        async function loadModels() {
+            try {
+                const response = await fetch('/api/available-models');
+                const data = await response.json();
+
+                if (data.status === 'success') {
+                    const modelSelect = document.getElementById('modelPath');
+                    modelSelect.innerHTML = '<option value="">请选择模型目录</option>';
+
+                    data.models.forEach(model => {
+                        const option = document.createElement('option');
+                        option.value = model.path;
+                        option.textContent = `${model.name} (${model.model_files_count}个文件)`;
+                        option.title = model.description;
+                        modelSelect.appendChild(option);
+                    });
+
+                    console.log(`[UI] 加载了 ${data.models.length} 个模型`);
+                } else {
+                    console.error('加载模型列表失败:', data.message);
+                }
+            } catch (error) {
+                console.error('加载模型列表出错:', error);
+            }
+        }
+
+        // 加载克隆音频列表
+        async function loadClonedAudios() {
+            try {
+                const response = await fetch('/api/cloned-audios');
+                const data = await response.json();
+
+                if (data.status === 'success') {
+                    const voiceSelect = document.getElementById('voiceCloneSelect');
+                    voiceSelect.innerHTML = '<option value="">请选择克隆音频</option>';
+
+                    data.audios.forEach(audio => {
+                        const option = document.createElement('option');
+                        option.value = audio.id;
+                        option.textContent = `${audio.id} - ${audio.name} (${audio.created_at})`;
+                        option.title = `状态: ${audio.status}\n创建时间: ${audio.created_at}\n参考音频: ${audio.reference_audio}`;
+                        voiceSelect.appendChild(option);
+                    });
+
+                    console.log(`[UI] 加载了 ${data.audios.length} 个克隆音频`);
+                } else {
+                    console.error('加载克隆音频列表失败:', data.message);
+                }
+            } catch (error) {
+                console.error('加载克隆音频列表出错:', error);
+            }
+        }
+
         // 生成视频
         async function generateVideo() {
             recordStatus.textContent = '正在生成视频...';
-            
+
             const formData = new FormData();
-            formData.append('model_name', 'SyncTalk');
-            formData.append('model_param', '/SyncTalk/modelwide');
+            formData.append('model_name', document.getElementById('modelSelect').value || 'ER-NeRF');
+            formData.append('model_param', document.getElementById('modelPath').value || '');
             formData.append('ref_audio_id', document.getElementById('voiceCloneSelect').value || '');
             formData.append('api_choice', document.getElementById('apiSelect').value);
-            
+
             try {
                 const response = await fetch('/chat_system', {
                     method: 'POST',
                     body: formData
                 });
-                
+
                 const result = await response.json();
-                
+
                 if (result.status === 'success') {
                     recordStatus.textContent = '视频生成成功';
                     recordStatus.style.color = 'var(--neon-green)';
-                    
+
                     // 更新视频播放器
                     if (result.video_path) {
                         chatVideo.src = result.video_path;
                         chatVideo.load();
                         chatVideo.play().catch(e => console.log('自动播放失败:', e));
                     }
-                    
+
                     // 添加AI消息
                     setTimeout(() => {
                         addMessage('ai', '已生成回应视频');
@@ -845,10 +896,15 @@
             }
         });
         
+        // 模型名称变化事件
+        document.getElementById('modelSelect').addEventListener('change', function() {
+            loadModels();
+        });
+
         startChatBtn.addEventListener('click', async function() {
             this.disabled = true;
             this.textContent = '处理中...';
-            
+
             try {
                 await generateVideo();
             } finally {
@@ -930,13 +986,79 @@
             }
         }
 
-        // 刷新按钮事件监听器
-        document.getElementById('refreshBtn').addEventListener('click', refreshAudioData);
+        // 模型刷新按钮事件监听器
+        document.getElementById('refreshModelBtn').addEventListener('click', async function() {
+            const btn = this;
+            const originalText = btn.innerHTML;
+
+            btn.disabled = true;
+            btn.innerHTML = '刷新中...';
+            btn.style.color = 'var(--neon-blue)';
+
+            try {
+                await loadModels();
+
+                btn.innerHTML = '已刷新';
+                btn.style.color = 'var(--neon-green)';
+
+                setTimeout(() => {
+                    btn.disabled = false;
+                    btn.innerHTML = originalText;
+                    btn.style.color = '';
+                }, 2000);
+            } catch (error) {
+                console.error('刷新模型列表失败:', error);
+
+                btn.innerHTML = '刷新失败';
+                btn.style.color = 'var(--neon-red)';
+
+                setTimeout(() => {
+                    btn.disabled = false;
+                    btn.innerHTML = originalText;
+                    btn.style.color = '';
+                }, 2000);
+            }
+        });
+
+        // 音频刷新按钮事件监听器
+        document.getElementById('refreshAudioBtn').addEventListener('click', async function() {
+            const btn = this;
+            const originalText = btn.innerHTML;
+
+            btn.disabled = true;
+            btn.innerHTML = '刷新中...';
+            btn.style.color = 'var(--neon-blue)';
+
+            try {
+                await loadClonedAudios();
+
+                btn.innerHTML = '已刷新';
+                btn.style.color = 'var(--neon-green)';
+
+                setTimeout(() => {
+                    btn.disabled = false;
+                    btn.innerHTML = originalText;
+                    btn.style.color = '';
+                }, 2000);
+            } catch (error) {
+                console.error('刷新音频列表失败:', error);
+
+                btn.innerHTML = '刷新失败';
+                btn.style.color = 'var(--neon-red)';
+
+                setTimeout(() => {
+                    btn.disabled = false;
+                    btn.innerHTML = originalText;
+                    btn.style.color = '';
+                }, 2000);
+            }
+        });
 
         // 初始化
         window.addEventListener('load', () => {
             initWaveform();
-            initializeAudioSelects();
+            loadModels();
+            loadClonedAudios();
             setInterval(updateSystemStatus, 5000);
             updateSystemStatus();
         });
