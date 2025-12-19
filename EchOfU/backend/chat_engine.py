@@ -3,9 +3,8 @@ from zhipuai import ZhipuAI
 import os
 import shutil
 import time
-# 假设 PathManager 类保存在同级目录 path_manager.py 中
-from path_manager import PathManager
-from voice_generator import OpenVoiceService
+from .path_manager import PathManager
+from .voice_generator import OpenVoiceService
 # 需要导入 video_generator 中的函数来生成最终视频
 from video_generator import generate_video
 
@@ -164,4 +163,5 @@ def get_ai_response(input_text_file, output_text_file, api_key, model):
     except Exception as e:
         print(f"AI回答生成错误: {e}")
         return "AI服务暂时不可用"
+
 
