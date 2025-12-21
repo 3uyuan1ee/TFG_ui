@@ -5,6 +5,7 @@ import subprocess
 import torch
 import threading
 from datetime import datetime
+from typing import Optional, Dict, Any, List
 
 from nltk.lm import Vocabulary
 from openvoice.api import BaseSpeakerTTS, ToneColorConverter
@@ -768,6 +769,121 @@ class OpenVoiceService:
     def download_openvoice_models(self):
         """下载OpenVoice V2预训练模型（兼容性方法）"""
         return self.model_manager._download_models()
+
+    def generate_speech_with_feature(self, text: str, target_se, **kwargs) -> Optional[str]:
+        """
+        使用指定特征生成语音（供UnifiedVoiceService调用）
+
+        Args:
+            text: 目标文本
+            target_se: 目标说话人特征张量
+            **kwargs: 其他参数
+
+        Returns:
+            生成的音频文件路径
+        """
+        try:
+            print("[OpenVoice] 使用指定特征生成语音")
+            print(f"  文本: {text[:50]}...")
+
+            # 生成输出文件名
+            timestamp = time.strftime("%Y%m%d_%H%M%S")
+            output_path = self.path_manager.get_output_voice_path(f"feature_{timestamp}")
+
+            # 确保输出目录存在
+            self.path_manager.ensure_file_directory(output_path)
+
+            # 使用V2模型的音色转换
+            return self._clone_voice_with_v2_model(
+                text=text,
+                target_se=target_se,
+                output_path=output_path,
+                **kwargs
+            )
+
+        except Exception as e:
+            print(f"[OpenVoice] 特征生成语音失败: {e}")
+            import traceback
+            traceback.print_exc()
+            return None
+
+    def _clone_voice_with_v2_model(self, text: str, target_se, output_path: str, base_speaker_key: str = "ZH", **kwargs) -> Optional[str]:
+        """
+        使用V2模型和指定的目标特征进行音色转换
+
+        Args:
+            text: 目标文本
+            target_se: 目标说话人特征张量
+            output_path: 输出音频路径
+            base_speaker_key: 基础说话人键
+            **kwargs: 其他参数
+
+        Returns:
+            生成的音频文件路径
+        """
+        temp_audio = None
+        try:
+            if not self.tone_converter:
+                print("[OpenVoice] 音色转换器未初始化")
+                return None
+
+            # 确保目标特征在正确的设备上
+            if isinstance(target_se, torch.Tensor):
+                target_se = target_se.to(self.model_manager.device)
+
+            print(f"[OpenVoice] 目标特征形状: {target_se.shape}")
+
+            # 1. 先用基础模型生成语音（使用MeloTTS）
+            temp_audio = self.path_manager.get_temp_voice_path(f"base_target_{int(time.time())}")
+            base_speaker_path = self._generate_base_speech(text, temp_audio, base_speaker_key)
+
+            if not base_speaker_path:
+                return None
+
+            # 2. 加载基础说话人特征
+            source_se_path = self.path_manager.get_root_begin_path(
+                "OpenVoice/checkpoints_v2/base_speakers/ses",
+                f"{base_speaker_key.lower()}.pth"
+            )
+
+            if not os.path.exists(source_se_path):
+                print(f"[OpenVoice] 未找到基础说话人特征: {source_se_path}")
+                return None
+
+            # 3. 加载基础说话人特征
+            source_se = torch.load(source_se_path, map_location=self.model_manager.device)
+            print(f"[OpenVoice] 基础说话人特征加载成功，形状: {source_se.shape}")
+
+            # 4. 执行音色转换
+            encode_message = "@MyShell"
+            print(f"[OpenVoice] 开始音色转换...")
+            print(f"[OpenVoice] 输入音频: {temp_audio}")
+            print(f"[OpenVoice] 输出音频: {output_path}")
+
+            self.tone_converter.convert(
+                audio_src_path=temp_audio,
+                src_se=source_se,
+                tgt_se=target_se,
+                output_path=output_path,
+                message=encode_message
+            )
+
+            print(f"[OpenVoice] 音色转换完成")
+            return output_path
+
+        except Exception as e:
+            print(f"[OpenVoice] V2模型音色转换失败: {e}")
+            import traceback
+            traceback.print_exc()
+            return None
+        finally:
+            # 清理临时文件
+            if temp_audio and os.path.exists(temp_audio):
+                try:
+                    os.remove(temp_audio)
+                    print(f"[OpenVoice] 清理临时文件: {temp_audio}")
+                except Exception as cleanup_error:
+                    print(f"[OpenVoice] 清理临时文件失败: {cleanup_error}")
 
 
 class DeviceUtils:

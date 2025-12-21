@@ -213,6 +213,14 @@ class PathManager:
         """检查路径是否为目录"""
         return os.path.isdir(path)
 
+    def get_cosyvoice_path(self, subpath=""):
+        """获取CosyVoice相关路径"""
+        return os.path.join(self.project_root, "CosyVoice", subpath)
+
+    def get_cosyvoice_model_path(self, subpath=""):
+        """获取CosyVoice模型路径"""
+        return os.path.join(self.project_root, "CosyVoice", subpath)
+
     def get_project_info(self):
         """获取项目路径信息摘要"""
         return {
@@ -220,6 +228,7 @@ class PathManager:
             "models_dir": self.get_models_path(),
             "ernerf_dir": self.get_ernerf_path(),
             "openvoice_dir": self.get_openvoice_model_path(),
+            "cosyvoice_dir": self.get_cosyvoice_path(),
             "voices_dir": self.get_voices_path(),
             "videos_dir": self.get_videos_path(),
         }
