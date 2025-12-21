@@ -29,6 +29,9 @@ loguru>=0.7.0
 onnx>=1.15.0
 onnxruntime>=1.18.0
 
+# VLLM Acceleration Support (optional, for improved performance)
+vllm>=0.4.0
+
 # For advanced users: TensorRT acceleration (Linux only)
 # tensorrt>=10.13.0
 

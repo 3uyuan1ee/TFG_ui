@@ -328,11 +328,18 @@ class AudioValidator(LoggerMixin):
 class ModelManager(LoggerMixin):
     """模型管理器 - 负责CosyVoice3模型的加载和管理"""
 
-    def __init__(self, model_dir: str, device_manager: DeviceManager):
+    def __init__(self, model_dir: str, device_manager: DeviceManager,
+                 load_vllm: bool = False, load_jit: bool = False, load_trt: bool = False,
+                 fp16: bool = False, trt_concurrent: int = 1):
         self.model_dir = model_dir
         self.device_manager = device_manager
         self.model = None
         self.model_info = {}
+        self._load_vllm = load_vllm
+        self._load_jit = load_jit
+        self._load_trt = load_trt
+        self._fp16 = fp16
+        self._trt_concurrent = trt_concurrent
         self._lock = threading.RLock()
         self._load_model()
 
@@ -349,15 +356,55 @@ class ModelManager(LoggerMixin):
                 if not os.path.exists(self.model_dir):
                     raise ModelLoadError(f"模型目录不存在: {self.model_dir}")
 
-                # 加载模型
-                self.model = AutoModel(model_dir=self.model_dir)
+                # 加载模型（支持VLLM等优化选项）
+                load_params = {
+                    "model_dir": self.model_dir,
+                    "load_jit": self._load_jit,
+                    "load_trt": self._load_trt,
+                    "load_vllm": self._load_vllm,
+                    "fp16": self._fp16
+                }
+
+                # 只有在加载TRT时才添加trt_concurrent参数
+                if self._load_trt:
+                    load_params["trt_concurrent"] = self._trt_concurrent
+
+                self.model = AutoModel(**load_params)
+
+                # 记录使用的优化选项
+                optimizations = []
+                if self._load_vllm:
+                    optimizations.append("VLLM")
+                if self._load_jit:
+                    optimizations.append("JIT")
+                if self._load_trt:
+                    optimizations.append("TensorRT")
+                if self._fp16:
+                    optimizations.append("FP16")
+
+                if optimizations:
+                    self.logger.info(f"[ModelManager] 启用优化: {', '.join(optimizations)}")
+                if self._load_vllm:
+                    self.logger.info("[ModelManager] VLLM加速已启用，推理速度将提升")
 
                 # 获取模型信息
                 self.model_info = {
                     "model_dir": self.model_dir,
                     "sample_rate": getattr(self.model, 'sample_rate', 24000),
                     "loaded_time": time.time(),
-                    "device": self.device_manager.device
+                    "device": self.device_manager.device,
+                    "optimizations": {
+                        "vllm_enabled": self._load_vllm,
+                        "jit_enabled": self._load_jit,
+                        "trt_enabled": self._load_trt,
+                        "fp16_enabled": self._fp16,
+                        "trt_concurrent": self._trt_concurrent if self._load_trt else None
+                    },
+                    "performance_stats": {
+                        "inference_count": 0,
+                        "total_inference_time": 0.0,
+                        "average_inference_time": 0.0
+                    }
                 }
 
                 self.logger.info(f"[ModelManager] 模型加载成功")
@@ -382,6 +429,32 @@ class ModelManager(LoggerMixin):
     def is_model_loaded(self) -> bool:
         """检查模型是否已加载"""
         return self.model is not None
+
+    def update_performance_stats(self, inference_time: float):
+        """更新性能统计信息"""
+        with self._lock:
+            stats = self.model_info["performance_stats"]
+            stats["inference_count"] += 1
+            stats["total_inference_time"] += inference_time
+            stats["average_inference_time"] = stats["total_inference_time"] / stats["inference_count"]
+
+    def get_performance_stats(self) -> Dict[str, Any]:
+        """获取性能统计信息"""
+        with self._lock:
+            return self.model_info["performance_stats"].copy()
+
+    def reset_performance_stats(self):
+        """重置性能统计信息"""
+        with self._lock:
+            self.model_info["performance_stats"] = {
+                "inference_count": 0,
+                "total_inference_time": 0.0,
+                "average_inference_time": 0.0
+            }
+
+    def get_optimization_info(self) -> Dict[str, Any]:
+        """获取优化信息"""
+        return self.model_info["optimizations"].copy()
 
 
 class AudioProcessor(LoggerMixin):
@@ -511,6 +584,9 @@ class VoiceCloner(LoggerMixin):
             self.logger.info(f"  生成时长: {result.audio_metadata.duration:.2f}s")
             self.logger.info(f"  耗时: {result.generation_time:.2f}s")
 
+            # 更新性能统计
+            self.model_manager.update_performance_stats(result.generation_time)
+
             return result
 
         except Exception as e:
@@ -550,11 +626,15 @@ class CosyService(LoggerMixin):
             print(f"克隆成功: {result.audio_path}")
     """
 
-    def __init__(self, model_dir: str = None):
+    def __init__(self, model_dir: str = None,
+                 load_vllm: bool = False, load_jit: bool = False, load_trt: bool = False,
+                 fp16: bool = False, trt_concurrent: int = 1):
         if not hasattr(self, '_initialized'):
-            self._initialize_service(model_dir)
+            self._initialize_service(model_dir, load_vllm, load_jit, load_trt, fp16, trt_concurrent)
 
-    def _initialize_service(self, model_dir: str = None):
+    def _initialize_service(self, model_dir: str = None,
+                           load_vllm: bool = False, load_jit: bool = False, load_trt: bool = False,
+                           fp16: bool = False, trt_concurrent: int = 1):
         """初始化服务组件"""
         try:
             self.logger.info("[CosyService] 初始化CosyVoice3语音克隆服务...")
@@ -581,7 +661,14 @@ class CosyService(LoggerMixin):
 
                 # 初始化模型相关模块
                 if os.path.exists(model_dir):
-                    self.model_manager = ModelManager(model_dir, self.device_manager)
+                    self.model_manager = ModelManager(
+                        model_dir, self.device_manager,
+                        load_vllm=load_vllm,
+                        load_jit=load_jit,
+                        load_trt=load_trt,
+                        fp16=fp16,
+                        trt_concurrent=trt_concurrent
+                    )
                     self.voice_cloner = VoiceCloner(self.model_manager, self.audio_processor)
                 else:
                     self.model_manager = None
