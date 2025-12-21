@@ -80,11 +80,27 @@ class UnifiedVoiceService:
     def _load_features(self):
         """加载已保存的说话人特征"""
         try:
+            # 先尝试加载OpenVoice格式的特征
             features_file = self.path_manager.get_speaker_features_path()
             if os.path.exists(features_file):
                 with open(features_file, 'r', encoding='utf-8') as f:
-                    self.speaker_features = json.load(f)
-                print(f"[UnifiedVoiceService] 加载了 {len(self.speaker_features)} 个说话人特征")
+                    openvoice_features = json.load(f)
+
+                # 转换OpenVoice格式为统一格式
+                self.speaker_features = {}
+                for speaker_id, metadata in openvoice_features.items():
+                    self.speaker_features[speaker_id] = {
+                        'engine': VoiceEngine.OPENVOICE.value,
+                        'reference_audio': metadata.get('reference_audio', ''),
+                        'created_time': metadata.get('created_time', ''),
+                        'metadata': {
+                            'extraction_method': 'openvoice_se_extractor',
+                            'model_version': 'OpenVoiceV2'
+                        }
+                    }
+
+                print(f"[UnifiedVoiceService] 加载了 {len(self.speaker_features)} 个OpenVoice说话人特征")
+
         except Exception as e:
             print(f"[UnifiedVoiceService] 加载特征失败: {e}")
             self.speaker_features = {}

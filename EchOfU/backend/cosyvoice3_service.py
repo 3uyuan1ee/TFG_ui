@@ -18,8 +18,6 @@ def init_cosyvoice_import():
         return True
 
     try:
-        # 使用PathManager获取正确的CosyVoice路径
-        # 这里我们暂时使用相对路径，稍后在__init__中修正
         from .path_manager import PathManager
         path_manager = PathManager()
         cosyvoice_path = path_manager.get_cosyvoice_path()
@@ -31,7 +29,16 @@ def init_cosyvoice_import():
                 print("[CosyVoice3Service] CosyVoice3导入成功")
                 return True
             except ImportError as e:
-                print(f"[CosyVoice3Service] CosyVoice3导入失败: {e}")
+                # 处理常见的依赖问题
+                if "wetext" in str(e):
+                    print("[CosyVoice3Service] 缺少wetext依赖，请安装: pip install wetext")
+                elif "ttsfrd" in str(e):
+                    print("[CosyVoice3Service] 缺少ttsfrd依赖，请安装: pip install ttsfrd")
+                else:
+                    print(f"[CosyVoice3Service] CosyVoice3导入失败: {e}")
+                return False
+            except Exception as e:
+                print(f"[CosyVoice3Service] CosyVoice3导入异常: {e}")
                 return False
         else:
             print(f"[CosyVoice3Service] CosyVoice3目录不存在: {cosyvoice_path}")
