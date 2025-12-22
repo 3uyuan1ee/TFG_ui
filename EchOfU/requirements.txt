@@ -24,7 +24,7 @@ mutagen==1.46.0
 # PyTorch 核心库
 torch==2.3.1
 torchaudio==2.3.1
-torchvision>=0.15.0  # Matcha-TTS需要
+torchvision==0.18.1  # Matcha-TTS需要
 
 # Transform 和相关库
 transformers==4.51.3
@@ -32,7 +32,7 @@ x-transformers==2.11.24
 diffusers==0.29.0  # 注意：Matcha-TTS需要0.25.0，但CosyVoice需要0.29.0
 
 # 数值计算库
-numpy==1.26.4
+numpy==1.23.5  # modelscope 1.4.2要求<1.24.0，与torch 2.3.1兼容
 pyarrow==18.1.0
 pandas
 scipy  # Matcha-TTS需要
@@ -63,7 +63,7 @@ tensorrt-cu12-libs==10.13.3.9 ; sys_platform == 'linux'
 # ==============================================================================
 # 模型下载相关
 # ==============================================================================
-modelscope==1.20.0
+modelscope==1.4.2 #兼容问题
 huggingface_hub>=0.16.0
 gdown==5.1.0
 wget==3.2
@@ -83,7 +83,7 @@ lightning==2.2.4
 torchmetrics>=0.11.4  # Matcha-TTS需要
 deepspeed==0.15.1 ; sys_platform == 'linux'
 einops>=0.7.0
-vllm>=0.4.0
+# vllm>=0.4.0  # 已移除：vllm需要独立环境和torch 2.7.0，见下方说明
 
 # ==============================================================================
 # Matcha-TTS 特定依赖
@@ -125,3 +125,20 @@ tensorboard==2.14.0
 pytest>=7.0.0
 pytest-cov>=4.0.0
 pre-commit  # 开发工具，用于git hooks
+# ==============================================================================
+# vllm 推理加速（可选，需要独立环境）
+# ==============================================================================
+# vllm用于CosyVoice2推理加速，但需要不同的torch版本
+# 官方要求：vllm==v0.9.0 + torch==2.7.0
+# 
+# 如果需要使用vllm推理，请创建独立环境：
+# 
+#   conda create -n cosyvoice_vllm --clone cosyvoice
+#   conda activate cosyvoice_vllm
+#   pip install vllm==v0.9.0 transformers==4.51.3 numpy==1.26.4
+# 
+# 注意：
+# - vllm环境仅供推理使用，不影响主开发环境
+# - 主环境使用torch 2.3.1（CosyVoice标准要求）
+# - vllm环境使用torch 2.7.0（vllm要求）
+# ==============================================================================
