@@ -347,18 +347,44 @@ class ModelManager(LoggerMixin):
                 if not os.path.exists(self.model_dir):
                     raise ModelLoadError(f"模型目录不存在: {self.model_dir}")
 
-                # 加载模型（支持VLLM等优化选项）
-                load_params = {
-                    "model_dir": self.model_dir,
-                    "load_jit": self._load_jit,
-                    "load_trt": self._load_trt,
-                    "load_vllm": self._load_vllm,
-                    "fp16": self._fp16
-                }
+                # 检测模型类型（CosyVoice/CosyVoice2/CosyVoice3）
+                cosyvoice3_yaml = os.path.join(self.model_dir, 'cosyvoice3.yaml')
+                cosyvoice2_yaml = os.path.join(self.model_dir, 'cosyvoice2.yaml')
+                cosyvoice_yaml = os.path.join(self.model_dir, 'cosyvoice.yaml')
 
-                # 只有在加载TRT时才添加trt_concurrent参数
-                if self._load_trt:
-                    load_params["trt_concurrent"] = self._trt_concurrent
+                # 根据模型类型构建参数
+                # CosyVoice3 不支持 load_jit 参数
+                if os.path.exists(cosyvoice3_yaml):
+                    self.logger.info("[ModelManager] 检测到 CosyVoice3 模型")
+                    load_params = {
+                        "model_dir": self.model_dir,
+                        "load_trt": self._load_trt,
+                        "load_vllm": self._load_vllm,
+                        "fp16": self._fp16
+                    }
+                    if self._load_trt:
+                        load_params["trt_concurrent"] = self._trt_concurrent
+                elif os.path.exists(cosyvoice2_yaml):
+                    self.logger.info("[ModelManager] 检测到 CosyVoice2 模型")
+                    load_params = {
+                        "model_dir": self.model_dir,
+                        "load_jit": self._load_jit,
+                        "load_trt": self._load_trt,
+                        "load_vllm": self._load_vllm,
+                        "fp16": self._fp16
+                    }
+                    if self._load_trt:
+                        load_params["trt_concurrent"] = self._trt_concurrent
+                else:
+                    self.logger.info("[ModelManager] 检测到 CosyVoice 模型")
+                    load_params = {
+                        "model_dir": self.model_dir,
+                        "load_jit": self._load_jit,
+                        "load_trt": self._load_trt,
+                        "fp16": self._fp16
+                    }
+                    if self._load_trt:
+                        load_params["trt_concurrent"] = self._trt_concurrent
 
                 self.model = AutoModel(**load_params)
 
