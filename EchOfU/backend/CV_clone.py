@@ -633,6 +633,36 @@ class VoiceCloner(LoggerMixin):
         self.model_manager = model_manager
         self.audio_processor = audio_processor
         self.executor = ThreadPoolExecutor(max_workers=2)
+        self._whisper_model = None  # 延迟加载 whisper 模型
+
+    def _load_whisper_model(self):
+        """延迟加载 whisper 模型"""
+        if self._whisper_model is None:
+            try:
+                import whisper
+                self.logger.info("[VoiceCloner] 加载 Whisper 模型用于语音识别...")
+                self._whisper_model = whisper.load_model("base")
+                self.logger.info("[VoiceCloner] Whisper 模型加载成功")
+            except Exception as e:
+                self.logger.warning(f"[VoiceCloner] Whisper 模型加载失败: {e}")
+                self._whisper_model = False
+        return self._whisper_model
+
+    def _transcribe_audio(self, audio_path: str) -> Optional[str]:
+        """使用 Whisper 从音频中提取文本"""
+        try:
+            model = self._load_whisper_model()
+            if model is False:
+                return None
+
+            # 加载音频并转录
+            result = model.transcribe(audio_path, language='zh')
+            text = result['text'].strip()
+            self.logger.info(f"[VoiceCloner] ASR 识别文本: {text}")
+            return text if text else None
+        except Exception as e:
+            self.logger.warning(f"[VoiceCloner] ASR 识别失败: {e}")
+            return None
 
     def clone_voice(self, request: VoiceCloneRequest) -> VoiceCloneResult:
         """执行语音克隆"""
@@ -665,11 +695,21 @@ class VoiceCloner(LoggerMixin):
             prefix_prompt = "You are a helpful assistant.<|endofprompt|>"
 
             if request.prompt_text:
-                # 用户提供了自定义提示词，需要在前面添加必需的前缀
+                # 用户提供了自定义提示词（应该是参考音频中说话的内容）
                 prompt_text = f"{prefix_prompt} {request.prompt_text}"
             else:
-                # 只使用基本提示词（确保不会太长，避免短文本采样问题）
-                prompt_text = f"{prefix_prompt}"
+                # 未提供 prompt_text，使用 ASR 从参考音频中提取文本
+                self.logger.info("[VoiceCloner] 未提供 prompt_text，尝试从参考音频中提取文本...")
+                transcribed_text = self._transcribe_audio(reference_audio)
+
+                if transcribed_text:
+                    # 使用识别出的文本作为 prompt
+                    prompt_text = f"{prefix_prompt} {transcribed_text}"
+                    self.logger.info(f"[VoiceCloner] 使用 ASR 识别文本作为 prompt")
+                else:
+                    # ASR 失败，回退到使用合成文本（虽然不完美，但比只有前缀好）
+                    self.logger.warning("[VoiceCloner] ASR 识别失败，使用合成文本作为 prompt（可能效果不佳）")
+                    prompt_text = f"{prefix_prompt} {request.text}"
 
             # 执行语音克隆
             self.logger.info("[VoiceCloner] 开始生成语音...")
