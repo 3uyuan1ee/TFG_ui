@@ -348,10 +348,10 @@ def chat_system():
         # ==================== POST请求：处理对话生成 ====================
         try:
             # 收集对话参数
-            # ToDo : 这里参数有问题，后续需要调整
             data = {
                 "model_name": request.form.get('model_name', 'SyncTalk'),        # 对话模型选择
                 "model_param": request.form.get('model_param', ''),              # 模型参数路径
+                "ref_audio": request.form.get('ref_audio', ''),                  # 参考音频路径
                 "voice_clone": request.form.get('voice_clone', 'false'),          # 是否启用语音克隆
                 "api_choice": request.form.get('api_choice', 'glm-4-plus')        # API模型选择
             }

@@ -60,44 +60,45 @@ def generate_video(data):
     res_voices_dir = pm.ensure_directory(pm.get_res_voice_path())
     res_videos_dir = pm.ensure_directory(pm.get_res_video_path())
 
-    # 实例化 OpenVoice 服务（使用标准单例方法）
-    try:
-        ov = OpenVoiceService.get_instance()
-    except Exception as e:
-        print(f"[backend.video_generator] OpenVoice服务初始化警告: {e}")
-        ov = None
-
     # 获取基础参数
     ref_audio_path = data.get('ref_audio') # 前端传入的参考音频路径
     text = data.get('target_text')         # 要生成的文本 (可选)
-    speaker_id = data.get('speaker_id', 'default')
-    
+
     # 当前处理的音频路径 (初始为参考音频)
     current_audio_path = ref_audio_path
 
-   
-    # 2. 语音生成逻辑 (Text -> Audio)
-    
-    # 如果存在 target_text，则忽略 ref_audio，优先使用文本生成新的语音
+    # 2. 语音生成逻辑 (Text -> Audio) - 使用新的CosyVoice系统
     if text and text.strip():
-        print(f"[backend.video_generator] 检测到目标文本，正在生成语音: {text}")
-        if ov:
-            # 生成语音 (返回临时路径)
-            generated_temp_path = ov.generate_speech(text, speaker_id)
-            
-            if generated_temp_path and os.path.exists(generated_temp_path):
-                # 移动到统一的 res_voices 目录
-                timestamp = int(time.time())
-                filename = f"tts_{speaker_id}_{timestamp}.wav"
-                target_audio_path = pm.get_res_voice_path(filename)
-                
-                shutil.move(generated_temp_path, target_audio_path)
-                current_audio_path = target_audio_path
-                print(f"[backend.video_generator] 语音生成成功，已保存至: {current_audio_path}")
+        print(f"[backend.video_generator] 检测到目标文本，正在使用CosyVoice生成语音: {text}")
+        try:
+            # 创建服务实例
+            config = ServiceConfig(enable_vllm=True)
+            service = get_voice_service(config)
+
+            # 使用path_manager处理路径转换
+            if ref_audio_path and not os.path.isabs(ref_audio_path):
+                ref_audio_path = pm.get_static_path(ref_audio_path)
+
+            # 生成语音
+            timestamp = int(time.time())
+            output_filename = f"tts_video_{timestamp}.wav"
+
+            result = service.clone_voice(
+                text=text,
+                reference_audio=ref_audio_path if ref_audio_path else None,
+                speed=1.0,
+                output_filename=output_filename
+            )
+
+            if result.is_success:
+                current_audio_path = result.audio_path
+                print(f"[backend.video_generator] CosyVoice语音生成成功: {current_audio_path}")
             else:
-                print("[backend.video_generator] 语音生成失败，将尝试使用原始参考音频")
-        else:
-            print("[backend.video_generator] OpenVoice服务不可用，跳过语音生成")
+                print(f"[backend.video_generator] CosyVoice语音生成失败: {result.error_message}")
+                print("[backend.video_generator] 将尝试使用原始参考音频")
+        except Exception as e:
+            print(f"[backend.video_generator] CosyVoice服务错误: {e}")
+            print("[backend.video_generator] 将尝试使用原始参考音频")
 
    
     # 3. [加分项] 音频变调处理 (Pitch Shift)
