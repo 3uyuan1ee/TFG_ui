@@ -45,11 +45,8 @@ pip install -r requirements.txt -i https://mirrors.aliyun.com/pypi/simple/ --tru
 
 ### 4. 下载模型
 
-**方法1: 自动下载（首次运行时）**
-```bash
-python app.py
-# 首次运行会自动下载必要模型
-```
+**方法1: 自动下载（运行时会自动下载）**
+如果要使用自动下载，请务必关闭flask的调试模式！
 
 **方法2: 手动下载**
 ```python
@@ -62,6 +59,7 @@ snapshot_download('FunAudioLLM/Fun-CosyVoice3-0.5B-2512',
 
 ### 5. 启动服务
 
+使用IDE可能会导入失败，要将项目根设置为EchOfU
 ```bash
 cd EchOfU
 python app.py
