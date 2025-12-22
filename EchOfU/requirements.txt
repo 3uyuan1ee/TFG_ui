@@ -1,6 +1,7 @@
 # ==============================================================================
 # EchOfU 项目依赖文件
 # 以 CosyVoice 的依赖版本为基准，确保版本兼容性
+# 同时包含 Matcha-TTS（CosyVoice子模块）的所有依赖
 # ==============================================================================
 
 # PyTorch 索引配置
@@ -23,16 +24,18 @@ mutagen==1.46.0
 # PyTorch 核心库
 torch==2.3.1
 torchaudio==2.3.1
+torchvision>=0.15.0  # Matcha-TTS需要
 
 # Transform 和相关库
 transformers==4.51.3
 x-transformers==2.11.24
-diffusers==0.29.0
+diffusers==0.29.0  # 注意：Matcha-TTS需要0.25.0，但CosyVoice需要0.29.0
 
 # 数值计算库
 numpy==1.26.4
 pyarrow==18.1.0
 pandas
+scipy  # Matcha-TTS需要
 
 # 音频处理
 librosa==0.10.2
@@ -44,6 +47,8 @@ inflect==7.3.1
 omegaconf==2.3.0
 Hydra-Core==1.3.2
 HyperPyYAML==1.2.2
+hydra-colorlog==1.2.0  # Matcha-TTS需要
+hydra-optuna-sweeper==1.2.0  # Matcha-TTS需要
 
 # ONNX 相关
 onnx==1.16.0
@@ -69,15 +74,32 @@ wget==3.2
 fastapi==0.115.6
 fastapi-cli==0.0.4
 uvicorn==0.30.0
-gradio==5.4.0
+gradio==5.4.0  # 注意：Matcha-TTS需要3.43.2，但CosyVoice需要5.4.0
 
 # ==============================================================================
 # 深度学习相关
 # ==============================================================================
 lightning==2.2.4
+torchmetrics>=0.11.4  # Matcha-TTS需要
 deepspeed==0.15.1 ; sys_platform == 'linux'
 einops>=0.7.0
 vllm>=0.4.0
+
+# ==============================================================================
+# Matcha-TTS 特定依赖
+# ==============================================================================
+phonemizer  # Matcha-TTS需要
+piper_phonemize  # Matcha-TTS需要
+Unidecode  # Matcha-TTS需要
+Cython  # Matcha-TTS需要
+rootutils  # Matcha-TTS需要，用于项目根目录标准化
+
+# Jupyter相关（Matcha-TTS开发需要）
+notebook
+ipywidgets
+
+# 可视化（Matcha-TTS需要）
+seaborn
 
 # ==============================================================================
 # 其他工具库
@@ -102,3 +124,4 @@ tensorboard==2.14.0
 # ==============================================================================
 pytest>=7.0.0
 pytest-cov>=4.0.0
+pre-commit  # 开发工具，用于git hooks
