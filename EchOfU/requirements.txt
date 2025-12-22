@@ -32,7 +32,7 @@ x-transformers==2.11.24
 diffusers==0.29.0  # 注意：Matcha-TTS需要0.25.0，但CosyVoice需要0.29.0
 
 # 数值计算库
-numpy==1.23.5  # modelscope 1.4.2要求<1.24.0，与torch 2.3.1兼容
+numpy==1.24  # 与torch 2.3.1兼容
 pyarrow==18.1.0
 pandas
 scipy  # Matcha-TTS需要
@@ -63,7 +63,7 @@ tensorrt-cu12-libs==10.13.3.9 ; sys_platform == 'linux'
 # ==============================================================================
 # 模型下载相关
 # ==============================================================================
-modelscope==1.4.2 #兼容问题
+modelscope==1.17.1 #兼容问题
 huggingface_hub>=0.16.0
 gdown==5.1.0
 wget==3.2
@@ -89,7 +89,7 @@ einops>=0.7.0
 # Matcha-TTS 特定依赖
 # ==============================================================================
 phonemizer  # Matcha-TTS需要
-piper_phonemize  # Matcha-TTS需要
+#piper_phonemize  # Matcha-TTS需要
 Unidecode  # Matcha-TTS需要
 Cython  # Matcha-TTS需要
 rootutils  # Matcha-TTS需要，用于项目根目录标准化
