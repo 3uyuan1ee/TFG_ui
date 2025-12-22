@@ -618,8 +618,12 @@ class AudioProcessor(LoggerMixin):
         if filename is None:
             timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
             filename = f"cosyvoice_clone_{timestamp}.{format}"
+        elif not filename.endswith(f'.{format}'):
+            # 如果用户提供了文件名但没有扩展名，添加扩展名
+            filename = f"{filename}.{format}"
 
-        return self.path_manager.get_output_voice_path(filename)
+        # 直接使用 get_res_voice_path 避免双重扩展名
+        return self.path_manager.get_res_voice_path(filename)
 
 
 class VoiceCloner(LoggerMixin):
@@ -664,8 +668,8 @@ class VoiceCloner(LoggerMixin):
                 # 用户提供了自定义提示词，需要在前面添加必需的前缀
                 prompt_text = f"{prefix_prompt} {request.prompt_text}"
             else:
-                # 使用默认提示词
-                prompt_text = f"{prefix_prompt} Please speak the following content naturally."
+                # 只使用基本提示词（确保不会太长，避免短文本采样问题）
+                prompt_text = f"{prefix_prompt}"
 
             # 执行语音克隆
             self.logger.info("[VoiceCloner] 开始生成语音...")
