@@ -76,13 +76,14 @@ def video_generation():
         try:
             # 收集表单数据
 
-            # ToDo : 这里也是一样，后续需要调整参数，参考音频路径以及改为参考音频编号
             data = {
                 "model_name": request.form.get('model_name', 'SyncTalk'),    # 生成模型选择
                 "model_param": request.form.get('model_param', ''),          # 模型参数路径
                 "ref_audio": request.form.get('ref_audio', ''),              # 参考音频路径
                 "gpu_choice": request.form.get('gpu_choice', 'GPU0'),        # GPU设备选择
-                "target_text": request.form.get('target_text', '')           # 目标文本内容
+                "target_text": request.form.get('target_text', ''),          # 目标文本内容
+                "pitch": request.form.get('pitch', '0'),                      # 变调步数（半音）
+                "pitch_quality": request.form.get('pitch_quality', 'balanced') # 音质预设
             }
 
             # 调用后端视频生成模块
