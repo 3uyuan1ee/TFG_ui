@@ -17,3 +17,5 @@ test_data/
 /docs/
 /.dev/
 python310-env/
+EchOfU/static/voices/ref_voices
+EchOfU/static/voices/res_voices

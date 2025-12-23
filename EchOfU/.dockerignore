@@ -1,0 +1,141 @@
+# ==============================================================================
+# ER-NeRF Docker 构建忽略文件
+# 减小镜像大小，加快构建速度
+# ==============================================================================
+
+# Git相关
+.git
+.gitignore
+.gitattributes
+
+# 文档
+README.md
+*.md
+docs/
+.gitbook
+
+# 测试文件
+tests/
+test_*.py
+*_test.py
+
+# 日志文件
+*.log
+logs/
+*.log.*
+
+# 临时文件
+*.tmp
+*.temp
+*.swp
+*.swo
+*~
+.DS_Store
+Thumbs.db
+
+# Python缓存
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+
+# 虚拟环境
+venv/
+ENV/
+env/
+.venv
+
+# IDE配置
+.vscode/
+.idea/
+*.sublime-project
+*.sublime-workspace
+.spyderproject
+.spyproject
+
+# Jupyter Notebook
+.ipynb_checkpoints
+*.ipynb
+
+# 数据和模型文件（运行时生成）
+data/
+models/ER-NeRF/
+processed/
+results/
+audio_features/
+bfm_models/
+static/voices/res_voices/
+static/videos/res_videos/
+
+# Docker相关
+docker/
+Dockerfile*
+docker-compose*.yml
+.dockerignore
+
+# 前端相关
+node_modules/
+npm-debug.log
+package-lock.json
+*.css.map
+
+# 其他模型和服务
+CosyVoice/
+OpenVoice/
+MeloTTS/
+SyncTalk/
+
+# 配置文件（可能包含敏感信息）
+.env
+.env.*
+config.local.*
+
+# 缓存
+.cache/
+*.cache
+
+# 大文件和二进制
+*.mp4
+*.avi
+*.mov
+*.wav
+*.mp3
+*.pth
+*.pt
+*.ckpt
+*.bin
+*.onnx
+*.engine
+
+# Python工具
+.pytest_cache/
+.coverage
+htmlcov/
+.tox/
+.hypothesis/
+
+# MacOS
+.DS_Store
+.AppleDouble
+.LSOverride
+
+# Windows
+Thumbs.db
+ehthumbs.db
+Desktop.ini
