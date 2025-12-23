@@ -121,6 +121,20 @@ class FileManager:
         save_path = self.path_manager.get_ref_voice_path(safe_filename)
         audio_file.save(save_path)
 
+        # 验证保存的文件是否可以被音频库正确识别
+        try:
+            import torchaudio
+            torchaudio.load(save_path)
+            print(f"[FileManager] 音频文件验证通过: {safe_filename}")
+        except Exception as e:
+            # 文件无法被识别，删除并返回错误
+            os.remove(save_path)
+            print(f"[FileManager] 音频文件格式验证失败: {e}")
+            return {
+                'status': 'error',
+                'message': f'音频文件格式无效或损坏: {str(e)}。请确保上传有效的音频文件（WAV、MP3、M4A等）。'
+            }, 400
+
         # 获取相对路径
         relative_path = self._get_relative_path(save_path)
 

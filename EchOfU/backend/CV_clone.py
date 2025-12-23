@@ -514,8 +514,9 @@ class AudioProcessor(LoggerMixin):
 
     def _needs_conversion(self, audio_path: str) -> bool:
         """检查音频是否需要格式转换"""
-        # .m4a 文件需要转换为 .wav
-        unsupported_formats = {'.m4a', '.aac', '.wma', '.mp4'}
+        # 不支持的格式需要转换为 .wav
+        # torchaudio 的 soundfile 后端不支持这些格式
+        unsupported_formats = {'.m4a', '.aac', '.wma', '.mp4', '.mp3', '.flac', '.ogg'}
         return Path(audio_path).suffix.lower() in unsupported_formats
 
     def _convert_to_wav(self, audio_path: str) -> str:

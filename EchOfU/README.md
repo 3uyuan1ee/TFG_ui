@@ -36,6 +36,8 @@ source venv/bin/activate
 ```bash
 cd EchOfU
 pip install -r requirements.txt
+winget install ffmpeg
+
 ```
 
 **国内用户加速**:
