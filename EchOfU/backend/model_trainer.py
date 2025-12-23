@@ -122,6 +122,16 @@ def train_model(data):
             # 步骤 3: 构造三阶段 train_cmd 并训练
           
             print(f"[backend.model_trainer] [3/3] 开始/继续 训练 ER-NeRF 模型...")
+
+            # 定义每个阶段想要“跑多少步”
+            stage1_duration = 70000  # 打底
+            stage2_duration = 60000  # 嘴唇精调
+            stage3_duration = 70000  # 躯干训练
+
+            # 计算绝对的目标点 (累加)
+            target_1 = stage1_duration
+            target_2 = target_1 + stage2_duration
+            target_3 = target_2 + stage3_duration
             
              # 基础参数
             base_train_args = [
@@ -144,27 +154,32 @@ def train_model(data):
                 env['CUDA_VISIBLE_DEVICES'] = gpu_id
 
             # 自动阶段判定逻辑
-            train_cmd = []
-            phase_name = ""
+            train_cmd = None
+            phase_msg = ""
 
-            if current_step < 30000:
-                # 阶段一：打底 (Head Coarse)
-                # 目标训练到 30000 步
-                phase_name = "阶段一：头部粗训练 (0 -> 30k steps)"
-                train_cmd = base_train_args + ["--iters", "30000", "--lr", "1e-2"]
-            
-            elif current_step < 40000:
-                # 阶段二：嘴唇精调 (Lips Finetune)
-                # 目标训练到 40000 步
-                phase_name = "阶段二：嘴唇精调 (30k -> 40k steps)"
-                train_cmd = base_train_args + ["--iters", "40000", "--lr", "5e-3", "--finetune_lips"]
-            
+            if current_step < target_1:
+                # 阶段一：打底 (目标 70000)
+                phase_msg = f"[阶段1] 正在进行基础训练，目标步数: {target_1}"
+                train_cmd = base_train_args + ["--iters", str(target_1), "--lr", "1e-2"]
+
+            elif current_step < target_2:
+                # 阶段二：嘴唇 (目标 130000)
+                # 注意：此时加载之前的存档，专门精调嘴部
+                phase_msg = f"[阶段2] 正在精调嘴唇，目标步数: {target_2}"
+                train_cmd = base_train_args + ["--iters", str(target_2), "--lr", "1e-4", "--finetune_lips"]
+
+            elif current_step < target_3:
+                # 阶段三：躯干 (目标 200000)
+                # 此时开启 --torso，练出身体
+                phase_msg = f"[阶段3] 正在训练躯干，目标步数: {target_3}"
+                train_cmd = base_train_args + ["--iters", str(target_3), "--lr", "1e-4", "--torso"]
             else:
-                # 阶段三：躯干 (Torso)
-                # 目标训练到 70000 步 (或者更多，根据需求)
-                phase_name = "阶段三：躯干/最终训练 (40k -> 70k steps)"
-                train_cmd = base_train_args + ["--iters", "70000", "--lr", "1e-3", "--finetune_lips", "--torso", "--max_ray_batch", "2048"]
+                phase_msg = "所有阶段已完成训练。"
+                train_cmd = None
 
+            print(phase_msg)
+
+            if train_cmd:
             # 处理自定义参数 (如果前端传了，可能会覆盖上面的设置，需注意)
             custom_params = data.get('custom_params', '')
             if custom_params:
@@ -176,7 +191,6 @@ def train_model(data):
                         train_cmd.append(f"--{key.strip()}")
                         train_cmd.append(value.strip())
 
-            print(f"[backend.model_trainer] 当前执行: {phase_name}")
             print(f"[backend.model_trainer] 完整命令: {' '.join(train_cmd)}")
             
             # cwd 设置为 er_nerf_root，因为 main.py 内部有很多相对路径引用
@@ -203,5 +217,6 @@ def train_model(data):
 
     print("[backend.model_trainer] 训练流程结束")
     return ref_video_path
+
 
 
