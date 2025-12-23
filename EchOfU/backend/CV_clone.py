@@ -958,6 +958,13 @@ class CosyService(LoggerMixin):
             # 验证参考音频
             self.audio_validator.validate_audio_file(reference_audio_path)
 
+            # 音频预处理（提升克隆效果）
+            preprocessed_audio_path = self._preprocess_reference_audio(reference_audio_path)
+            if preprocessed_audio_path:
+                self.logger.info(f"[CosyService] 使用预处理后的音频: {preprocessed_audio_path}")
+                # 更新请求中的参考音频路径
+                request.reference_audio_path = preprocessed_audio_path
+
             # 执行语音克隆
             result = self.voice_cloner.clone_voice(request)
 
@@ -1072,6 +1079,60 @@ class CosyService(LoggerMixin):
     def get_model_path(self, model_type: ModelType) -> Optional[str]:
         """获取模型本地路径"""
         return self.model_download_manager.get_model_path(model_type)
+
+    def _preprocess_reference_audio(self, audio_path: str) -> Optional[str]:
+        """
+        预处理参考音频以提升克隆效果
+
+        Args:
+            audio_path: 原始音频路径
+
+        Returns:
+            预处理后的音频路径，失败时返回 None
+        """
+        try:
+            from .audio_preprocessor import AudioPreprocessorFactory, PreprocessConfig, ProcessingMode
+
+            self.logger.info(f"[CosyService] 开始预处理参考音频: {audio_path}")
+
+            # 创建预处理器，使用 PathManager 管理输出路径
+            preprocessor = AudioPreprocessorFactory.create(
+                output_dir=self.path_manager.get_ref_voice_path()
+            )
+
+            # 配置预处理参数
+            config = PreprocessConfig(
+                target_sample_rate=24000,  # CosyVoice 最优采样率
+                trim=True,                  # 去除首尾静音
+                denoise=True,               # 降噪
+                normalize=True,             # 归一化音量
+                mode=ProcessingMode.BALANCED
+            )
+
+            # 执行预处理
+            result = preprocessor.preprocess(audio_path, config=config)
+
+            if result.success:
+                self.logger.info(f"[CosyService] 预处理成功: {result.output_path}")
+                self.logger.info(f"  质量评分: {result.quality_score:.1f}/100")
+                self.logger.info(f"  处理时间: {result.processing_time:.3f}s")
+
+                if result.warnings:
+                    for warning in result.warnings:
+                        self.logger.warning(f"  警告: {warning}")
+
+                return result.output_path
+            else:
+                self.logger.warning(f"[CosyService] 预处理失败: {result.error_message}")
+                self.logger.warning(f"[CosyService] 将使用原始音频: {audio_path}")
+                return None
+
+        except ImportError:
+            self.logger.warning("[CosyService] audio_preprocessor 模块不可用，跳过预处理")
+            return None
+        except Exception as e:
+            self.logger.error(f"[CosyService] 预处理异常: {e}")
+            return None
 
     def get_available_models(self) -> Dict[str, Any]:
         """获取可用模型列表"""
