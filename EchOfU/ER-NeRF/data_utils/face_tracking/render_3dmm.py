@@ -70,9 +70,10 @@ class SoftSimpleShader(nn.Module):
             raise ValueError(msg)
         znear = kwargs.get("znear", getattr(cameras, "znear", 1.0))
         zfar = kwargs.get("zfar", getattr(cameras, "zfar", 100.0))
-        images = softmax_rgb_blend(
-            texels, fragments, blend_params, znear=znear, zfar=zfar
-        )
+        # images = softmax_rgb_blend(
+        #     texels, fragments, blend_params, znear=znear, zfar=zfar
+        # )
+        images = hard_rgb_blend(texels, fragments, blend_params)
         return images
 
 

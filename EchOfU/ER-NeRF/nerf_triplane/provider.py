@@ -478,7 +478,20 @@ class NeRFDataset:
                 self.auds.append(aud)
 
             # load lms and extract face
-            lms = np.loadtxt(os.path.join(self.root_path, 'ori_imgs', str(f['img_id']) + '.lms')) # [68, 2]
+            # lms = np.loadtxt(os.path.join(self.root_path, 'ori_imgs', str(f['img_id']) + '.lms')) # [68, 2]
+            # --- 修改开始：读取 .npy 文件而不是 .lms ---
+            # 旧代码
+            # lms = np.loadtxt(os.path.join(self.root_path, 'ori_imgs', str(f['img_id']) + '.lms'))
+
+            # 新代码：从 landmarks 文件夹读取 .npy
+            lms_path = os.path.join(self.root_path, 'landmarks', str(f['img_id']) + '.npy')
+
+            # 容错处理：万一文件名是 00000.npy 这种补零格式
+            if not os.path.exists(lms_path):
+                lms_path = os.path.join(self.root_path, 'landmarks', f"{int(f['img_id']):05d}.npy")
+
+            lms = np.load(lms_path)
+            # --- 修改结束 ---
 
             lh_xmin, lh_xmax = int(lms[31:36, 1].min()), int(lms[:, 1].max()) # actually lower half area
             xmin, xmax = int(lms[:, 1].min()), int(lms[:, 1].max())

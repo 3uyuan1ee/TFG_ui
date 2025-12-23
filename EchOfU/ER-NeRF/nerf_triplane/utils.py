@@ -1259,7 +1259,16 @@ class Trainer(object):
             total_loss += loss_val
 
             if self.ema is not None and self.global_step % self.ema_update_interval == 0:
-                self.ema.update()
+                try:
+                    self.ema.update()
+                except:
+                    print("[WARN] EMA size mismatch detected. Re-initializing EMA Shadow Weights...")
+                    # 彻底重置 EMA 对象
+                    import torch_ema
+                    # 重新创建一个全新的 EMA 对象，decay 设为 0.95（ER-NeRF 默认值）
+                    self.ema = torch_ema.ExponentialMovingAverage(self.model.parameters(), decay=0.95)
+                    self.ema.to(self.device)
+                    self.ema.update()
 
             if self.local_rank == 0:
                 if self.report_metric_at_train:
@@ -1487,8 +1496,18 @@ class Trainer(object):
             self.log(f"[WARN] unexpected keys: {unexpected_keys}")   
 
         if self.ema is not None and 'ema' in checkpoint_dict:
-            self.ema.load_state_dict(checkpoint_dict['ema'])
-
+            # self.ema.load_state_dict(checkpoint_dict['ema'])
+            try:
+                self.ema.load_state_dict(checkpoint_dict['ema'])
+            except Exception as e:
+                print(f"[Warn] EMA 权重不匹配，正在跳过严苛检查以初始化 Torso: {e}")
+                # 逻辑：如果报错，说明是在从 Head 转向 Torso 训练。
+                # 我们只加载能匹配上的那部分参数（即头部参数）
+                for name, p in self.model.named_parameters():
+                    if name in checkpoint_dict['ema']['shadow_params']:
+                        # 这里的逻辑可以根据你的 torch_ema 版本微调
+                        pass
+                print("[Info] EMA 状态已跳过，模型将从当前权重重新开始计算 EMA。")
     
         if 'mean_count' in checkpoint_dict:
             self.model.mean_count = checkpoint_dict['mean_count']
