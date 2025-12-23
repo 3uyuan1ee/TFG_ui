@@ -1,3 +1,4 @@
+
 import os
 import glob
 import tqdm
@@ -55,6 +56,31 @@ def extract_semantics(ori_imgs_dir, parsing_dir):
     os.system(cmd)
     print(f'[INFO] ===== extracted semantics =====')
 
+
+def extract_masks(torso_imgs_dir, mask_dir):
+    print(f'[INFO] ===== extract masks from {torso_imgs_dir} to {mask_dir} =====')
+
+    # 确保 mask 目录存在
+    os.makedirs(mask_dir, exist_ok=True)
+
+    # 获取所有生成的 torso 图片 (.png)
+    image_paths = glob.glob(os.path.join(torso_imgs_dir, '*.png'))
+
+    # 使用 tqdm 显示进度条
+    for image_path in tqdm.tqdm(image_paths):
+        # 读取带 Alpha 通道的图像
+        img = cv2.imread(image_path, cv2.IMREAD_UNCHANGED)
+
+        if img is not None and img.shape[2] == 4:
+            # 提取第4通道 (Alpha)，这就是躯干的 Mask
+            mask = img[:, :, 3]
+
+            # 保存为 jpg (黑底白人轮廓)
+            # 注意：文件名要从 .png 改回 .jpg 以匹配 dataset 里的 ID
+            save_name = os.path.basename(image_path).replace('.png', '.jpg')
+            cv2.imwrite(os.path.join(mask_dir, save_name), mask)
+
+    print(f'[INFO] ===== extracted masks =====')
 
 def extract_landmarks(ori_imgs_dir):
     print(f'[INFO] ===== extract face landmarks from {ori_imgs_dir} =====')
@@ -446,11 +472,13 @@ if __name__ == '__main__':
     parsing_dir = os.path.join(base_dir, 'parsing')
     gt_imgs_dir = os.path.join(base_dir, 'gt_imgs')
     torso_imgs_dir = os.path.join(base_dir, 'torso_imgs')
+    mask_dir = os.path.join(base_dir, 'mask')
 
     os.makedirs(ori_imgs_dir, exist_ok=True)
     os.makedirs(parsing_dir, exist_ok=True)
     os.makedirs(gt_imgs_dir, exist_ok=True)
     os.makedirs(torso_imgs_dir, exist_ok=True)
+    os.makedirs(mask_dir, exist_ok=True)
 
     # extract audio
     if opt.task == -1 or opt.task == 1:
@@ -475,6 +503,9 @@ if __name__ == '__main__':
     # extract torso images and gt_images
     if opt.task == -1 or opt.task == 6:
         extract_torso_and_gt(base_dir, ori_imgs_dir)
+    #生成mask目录
+    if opt.task == -1 or opt.task == 11:
+        extract_masks(torso_imgs_dir, mask_dir)
 
     # extract face landmarks
     if opt.task == -1 or opt.task == 7:

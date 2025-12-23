@@ -324,8 +324,9 @@ class NeRFRenderer(nn.Module):
             # 2D density grid for acceleration...
             density_thresh_torso = min(self.density_thresh_torso, self.mean_density_torso)
             occupancy = F.grid_sample(self.density_grid_torso.view(1, 1, self.grid_size, self.grid_size), bg_coords.view(1, -1, 1, 2), align_corners=True).view(-1)
-            mask = occupancy > density_thresh_torso
-
+            # mask = occupancy > density_thresh_torso
+            # --- 修改：强制渲染躯干，防止初期训练因为密度低被过滤掉 ---
+            mask = torch.ones_like(occupancy).bool()
             # masked query of torso
             torso_alpha = torch.zeros([N, 1], device=device)
             torso_color = torch.zeros([N, 3], device=device)

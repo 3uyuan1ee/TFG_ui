@@ -440,12 +440,23 @@ class NeRFDataset:
 
         for f in tqdm.tqdm(frames, desc=f'Loading {type} data'):
 
-            f_path = os.path.join(self.root_path, 'gt_imgs', str(f['img_id']) + '.jpg')
+            # f_path = os.path.join(self.root_path, 'gt_imgs', str(f['img_id']) + '.jpg')
+            #
+            # if not os.path.exists(f_path):
+            #     print('[WARN]', f_path, 'NOT FOUND!')
+            #     continue
+
+            # --- 修改开始：如果开启了 torso，优先读取带 Alpha 的 png 作为真值 ---
+            if self.opt.torso:
+                f_path = os.path.join(self.root_path, 'torso_imgs', str(f['img_id']) + '.png')
+            else:
+                f_path = os.path.join(self.root_path, 'gt_imgs', str(f['img_id']) + '.jpg')
 
             if not os.path.exists(f_path):
                 print('[WARN]', f_path, 'NOT FOUND!')
                 continue
-            
+            # --- 修改结束 ---
+
             pose = np.array(f['transform_matrix'], dtype=np.float32) # [4, 4]
             pose = nerf_matrix_to_ngp(pose, scale=self.scale, offset=self.offset)
             self.poses.append(pose)
@@ -480,7 +491,7 @@ class NeRFDataset:
             # load lms and extract face
             # lms = np.loadtxt(os.path.join(self.root_path, 'ori_imgs', str(f['img_id']) + '.lms')) # [68, 2]
             # --- 修改开始：读取 .npy 文件而不是 .lms ---
-            # 旧代码
+            # 旧代码（注释掉）：
             # lms = np.loadtxt(os.path.join(self.root_path, 'ori_imgs', str(f['img_id']) + '.lms'))
 
             # 新代码：从 landmarks 文件夹读取 .npy
