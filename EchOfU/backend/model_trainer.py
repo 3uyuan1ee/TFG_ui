@@ -80,7 +80,7 @@ def train_model(data):
             process_cmd = [
                 "python", process_script,
                 ref_video_path,
-                "--task", task_id
+                "--task", task_id,
                 "--asr_model", "deepspeech" # 显式指定音频模型
             ]
             
@@ -181,7 +181,7 @@ def train_model(data):
 
             if train_cmd:
             # 处理自定义参数 (如果前端传了，可能会覆盖上面的设置，需注意)
-            custom_params = data.get('custom_params', '')
+                custom_params = data.get('custom_params', '')
             if custom_params:
                 print(f"[backend.model_trainer] 附加自定义参数: {custom_params}")
                 params_list = custom_params.split(',')
