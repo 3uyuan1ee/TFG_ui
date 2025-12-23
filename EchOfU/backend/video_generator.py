@@ -230,11 +230,15 @@ def generate_video(data):
             cmd = [
                 "python", os.path.join(er_nerf_root, "main.py"),
                 dataset_path,
-                "--workspace", model_path, # 使用完整路径
-                "--aud", audio_npy_path,   # 传入 .npy
-                "--test",                  # 推理模式
-                "--test_train",            # 使用训练集视角
-                "--asr_model", "deepspeech" # 显式指定 ASR 模型
+                "--workspace", model_path,   # 使用完整路径
+                "--aud", audio_npy_path,     # 传入 .npy (DeepSpeech特征)
+                "--test",                    # 推理模式
+                "-O",                        # FP16加速等优化
+                "--test_train",              # 使用训练集视角
+                "--asr_model", "deepspeech", # 显式指定ASR模型
+                "--torso",                   # 渲染身体 (假设模型已包含身体)
+                "--smooth_path",             # [关键] 开启相机路径平滑
+                "--smooth_path_window", "7"  # 平滑窗口大小
             ]
             
             # GPU 设置
@@ -256,7 +260,7 @@ def generate_video(data):
             )
 
             # 结果文件处理
-            # ER-NeRF 结果通常保存在 workspace/results/ 目录下
+            # ER-NeRF 结果保存在 workspace/results/ 目录下
             timestamp = int(time.time())
             video_filename = f"ernerf_{workspace_name}_{timestamp}.mp4"
             destination_path = pm.get_res_video_path(video_filename)
@@ -272,16 +276,12 @@ def generate_video(data):
             for results_dir in possible_result_dirs:
                 if os.path.exists(results_dir):
                     # 查找最新的 mp4
-                    mp4_files = []
-                    for root, dirs, files in os.walk(results_dir):
-                        for f in files:
-                            if f.endswith('.mp4'):
-                                mp4_files.append(os.path.join(root, f))
-                    
+                    mp4_files = [f for f in os.listdir(results_dir) if f.endswith('.mp4')]
                     if mp4_files:
-                        latest_video = max(mp4_files, key=os.path.getctime)
+                        latest_video = max(mp4_files, key=lambda f: os.path.getctime(os.path.join(results_dir, f)))
+                        source_video_path = os.path.join(results_dir, latest_video)
                         print(f"[backend.video_generator] 找到视频: {latest_video}")
-                        shutil.copy(latest_video, destination_path)
+                        shutil.copy(source_video_path, destination_path)
                         found_video = True
                         break
             
@@ -304,3 +304,4 @@ def generate_video(data):
     default_path = pm.get_res_video_path("out.mp4")
     print(f"[backend.video_generator] 未匹配模型或发生错误，返回默认路径: {default_path}")
     return default_path
+
