@@ -25,3 +25,9 @@ configargparse
 
 lpips
 imageio-ffmpeg
+
+
+#以下为docker中指定的版本
+#pytorch==1.12.1
+#torchvision==0.13.1
+#cudatoolkit==11.3
