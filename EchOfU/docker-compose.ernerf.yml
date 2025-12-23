@@ -1,0 +1,155 @@
+# ==============================================================================
+# ER-NeRF Docker Compose 配置
+# 用于音频驱动的虚拟数字人视频生成
+#
+# 环境要求: Ubuntu 18.04 + CUDA 11.3 + PyTorch 1.12.1
+# ==============================================================================
+
+services:
+  # ER-NeRF 主服务
+  ernerf:
+    build:
+      context: .
+      dockerfile: Dockerfile.ernerf
+      args:
+        BASE_IMAGE: nvidia/cuda:11.3.1-cudnn8-devel-ubuntu18.04
+    image: echou/ernerf:latest
+    container_name: echou-ernerf
+    restart: unless-stopped
+
+    # GPU配置 - 使用GPU 0
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              device_ids: ['0']
+              capabilities: [gpu, compute, utility, video]
+
+    # 环境变量
+    environment:
+      - CUDA_VISIBLE_DEVICES=0
+      - PYTHONUNBUFFERED=1
+      - TZ=Asia/Shanghai
+
+    # 卷挂载 - 持久化存储
+    volumes:
+      # 数据目录（输入视频、预处理数据）
+      - ./data:/workspace/data:rw
+
+      # 模型目录（训练好的ER-NeRF模型）
+      - ./models/ER-NeRF:/workspace/models/ER-NeRF:rw
+
+      # 预处理数据缓存
+      - ./processed:/workspace/processed:rw
+
+      # 结果输出目录（生成的视频）
+      - ./results:/workspace/results:rw
+
+      # 日志目录
+      - ./logs:/workspace/logs:rw
+
+      # BFM模型挂载（需要手动下载）
+      # 将下载好的BFM模型文件放在这个目录
+      - ./bfm_models:/workspace/ER-NeRF/data_utils/face_tracking/3DMM:rw
+
+      # DeepSpeech特征缓存
+      - ./audio_features:/workspace/audio_features:rw
+
+    # 端口映射（可选，如果需要Web服务）
+    ports:
+      - "8888:8888"
+
+    # 共享内存（重要：多进程训练和预处理需要）
+    shm_size: '16gb'
+
+    # 网络配置
+    networks:
+      - ernerf-network
+
+    # 默认命令：启动服务器等待任务
+    command: ["server"]
+
+  # GPU1 服务（可选，用于多GPU并行训练）
+  ernerf-gpu1:
+    build:
+      context: .
+      dockerfile: Dockerfile.ernerf
+      args:
+        BASE_IMAGE: nvidia/cuda:11.3.1-cudnn8-devel-ubuntu18.04
+    image: echou/ernerf:latest
+    container_name: echou-ernerf-gpu1
+    restart: unless-stopped
+    profiles:
+      - gpu1  # 使用profile控制是否启动此服务
+
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              device_ids: ['1']
+              capabilities: [gpu, compute, utility, video]
+
+    environment:
+      - CUDA_VISIBLE_DEVICES=1
+      - PYTHONUNBUFFERED=1
+      - TZ=Asia/Shanghai
+
+    volumes:
+      - ./data:/workspace/data:rw
+      - ./models/ER-NeRF:/workspace/models/ER-NeRF:rw
+      - ./processed:/workspace/processed:rw
+      - ./results:/workspace/results:rw
+      - ./logs:/workspace/logs:rw
+      - ./bfm_models:/workspace/ER-NeRF/data_utils/face_tracking/3DMM:rw
+      - ./audio_features:/workspace/audio_features:rw
+
+    shm_size: '16gb'
+    networks:
+      - ernerf-network
+    command: ["server"]
+
+# ==============================================================================
+# 网络配置
+# ==============================================================================
+networks:
+  ernerf-network:
+    driver: bridge
+
+# ==============================================================================
+# 使用说明
+# ==============================================================================
+#
+# 1. 首次使用前准备BFM模型:
+#    - 在 https://faces.dmi.unibas.ch/bfm/main.php?nav=1-1-0&id=details 注册并下载
+#    - 将文件放置到 ./bfm_models/ 目录
+#    - 运行转换命令: docker compose run --rm ernerf convert-bfm
+#
+# 2. 构建镜像（首次使用或代码更新时）:
+#    docker compose -f docker-compose.ernerf.yml build
+#
+# 3. 启动服务:
+#    docker compose -f docker-compose.ernerf.yml up -d
+#
+# 4. 数据预处理:
+#    docker compose -f docker-compose.ernerf.yml run --rm ernerf preprocess /path/to/video.mp4 task_id
+#
+# 5. 模型训练:
+#    docker compose -f docker-compose.ernerf.yml run --rm ernerf train data/task_id models/ER-NeRF/task_id
+#
+# 6. 模型推理:
+#    docker compose -f docker-compose.ernerf.yml run --rm ernerf test data/task_id models/ER-NeRF/task_id audio_features/test.npy
+#
+# 7. 提取音频特征:
+#    docker compose -f docker-compose.ernerf.yml run --rm ernerf extract-features /path/to/audio.wav
+#
+# 8. 查看日志:
+#    docker compose -f docker-compose.ernerf.yml logs -f
+#
+# 9. 进入容器Shell:
+#    docker compose -f docker-compose.ernerf.yml run --rm ernerf shell
+#
+# 10. 停止服务:
+#     docker compose -f docker-compose.ernerf.yml down
+#

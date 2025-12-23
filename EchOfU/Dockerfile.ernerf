@@ -1,0 +1,250 @@
+# ==============================================================================
+# ER-NeRF Docker Image for EchOfU Project
+# 官方要求环境: Ubuntu 18.04 + CUDA 11.3 + PyTorch 1.12.1
+#
+# 核心功能:
+# - 音频驱动的虚拟数字人视频生成
+# - 支持训练和推理模式
+# - 自动化数据预处理
+# ==============================================================================
+
+ARG BASE_IMAGE=nvidia/cuda:11.3.1-cudnn8-devel-ubuntu18.04
+FROM $BASE_IMAGE
+
+# 元数据
+LABEL maintainer="EchOfU Project" \
+      description="ER-NeRF: Audio-Driven Talking Head Generation" \
+      version="1.0" \
+      os.version="Ubuntu 18.04" \
+      cuda.version="11.3" \
+      pytorch.version="1.12.1"
+
+# 环境变量
+ENV PYTHONUNBUFFERED=1 \
+    PYTHONDONTWRITEBYTECODE=1 \
+    DEBIAN_FRONTEND=noninteractive \
+    LANG=C.UTF-8 \
+    LC_ALL=C.UTF-8 \
+    TORCH_CUDA_ARCH_LIST="7.0 7.5 8.0 8.6+PTX" \
+    FORCE_CUDA="1" \
+    CUDA_HOME=/usr/local/cuda \
+    LD_LIBRARY_PATH=/usr/local/cuda/lib64:$LD_LIBRARY_PATH
+
+# 工作目录
+WORKDIR /workspace
+
+# ==============================================================================
+# 阶段1: 安装系统依赖
+# ==============================================================================
+RUN apt-get update -yq --fix-missing && \
+    DEBIAN_FRONTEND=noninteractive apt-get install -yq --no-install-recommends \
+    # 构建工具
+    build-essential \
+    cmake \
+    ninja-build \
+    # 网络工具
+    wget \
+    curl \
+    git \
+    vim \
+    # 多媒体处理
+    ffmpeg \
+    libsm6 \
+    libxext6 \
+    libxrender-dev \
+    libgomp1 \
+    libgl1-mesa-glx \
+    libglib2.0-0 \
+    # Python开发
+    python3-dev \
+    # 音频处理
+    portaudio19-dev \
+    # 性能工具
+    libgoogle-perftools4 \
+    && rm -rf /var/lib/apt/lists/* \
+    && apt-get clean
+
+# ==============================================================================
+# 阶段2: 安装Miniconda
+# ==============================================================================
+RUN wget --quiet https://repo.anaconda.com/miniconda/Miniconda3-latest-Linux-x86_64.sh -O /tmp/miniconda.sh && \
+    bash /tmp/miniconda.sh -b -p /opt/conda && \
+    rm /tmp/miniconda.sh && \
+    /opt/conda/bin/conda clean -ya
+
+# 添加conda到PATH
+ENV PATH="/opt/conda/bin:$PATH"
+
+# 创建conda环境（官方要求Python 3.10）
+RUN conda create -n ernerf python=3.10 -y && \
+    echo "conda activate ernerf" >> ~/.bashrc
+
+# 使用bash shell以便conda命令可用
+SHELL ["/bin/bash", "-c"]
+
+# ==============================================================================
+# 阶段3: 安装PyTorch 1.12.1 + CUDA 11.3（官方要求）
+# ==============================================================================
+RUN source /opt/conda/etc/profile.d/conda.sh && \
+    conda activate ernerf && \
+    pip install --no-cache-dir --upgrade pip && \
+    # 安装PyTorch 1.12.1 + CUDA 11.3（官方指定版本）
+    conda install pytorch==1.12.1 torchvision==0.13.1 cudatoolkit=11.3 -c pytorch -y && \
+    # 安装ninja（编译CUDA扩展需要）
+    pip install --no-cache-dir ninja
+
+# ==============================================================================
+# 阶段4: 复制并安装Python依赖
+# ==============================================================================
+COPY ER-NeRF/requirements.txt /workspace/requirements.txt
+
+RUN source /opt/conda/etc/profile.d/conda.sh && \
+    conda activate ernerf && \
+    pip install --no-cache-dir -r /workspace/requirements.txt && \
+    # 额外安装face-alignment
+    pip install --no-cache-dir face-alignment
+
+# ==============================================================================
+# 阶段5: 安装pytorch3d（需要编译，耗时较长）
+# ==============================================================================
+RUN source /opt/conda/etc/profile.d/conda.sh && \
+    conda activate ernerf && \
+    # 安装pytorch3d依赖
+    conda install -c fvcore -c iopath -c conda-forge fvcore iopath -y && \
+    conda install -c bottler nvidiacub -y && \
+    # 安装pytorch3d（使用预编译wheels加速）
+    pip install --no-index --no-cache-dir pytorch3d -f https://dl.fbaipublicfiles.com/pytorch3d/packaging/wheels/py310_cu113_pyt1121/download.html
+
+# ==============================================================================
+# 阶段6: 安装TensorFlow（用于face parsing）
+# ==============================================================================
+RUN source /opt/conda/etc/profile.d/conda.sh && \
+    conda activate ernerf && \
+    # 安装TensorFlow GPU 2.x
+    pip install --no-cache-dir tensorflow-gpu==2.8.0 && \
+    # 修复protobuf版本冲突
+    pip uninstall protobuf -y && \
+    pip install protobuf==3.20.1
+
+# ==============================================================================
+# 阶段7: 复制ER-NeRF源代码
+# ==============================================================================
+COPY ER-NeRF/ /workspace/ER-NeRF/
+
+WORKDIR /workspace/ER-NeRF
+
+# ==============================================================================
+# 阶段8: 编译CUDA扩展（关键步骤）
+# ==============================================================================
+# 编译raymarching扩展
+RUN source /opt/conda/etc/profile.d/conda.sh && \
+    conda activate ernerf && \
+    cd /workspace/ER-NeRF/raymarching && \
+    python setup.py build_ext --inplace
+
+# 编译gridencoder扩展
+RUN source /opt/conda/etc/profile.d/conda.sh && \
+    conda activate ernerf && \
+    cd /workspace/ER-NeRF/gridencoder && \
+    python setup.py build_ext --inplace
+
+# 编译shencoder扩展
+RUN source /opt/conda/etc/profile.d/conda.sh && \
+    conda activate ernerf && \
+    cd /workspace/ER-NeRF/shencoder && \
+    python setup.py build_ext --inplace
+
+# 编译freqencoder扩展
+RUN source /opt/conda/etc/profile.d/conda.sh && \
+    conda activate ernerf && \
+    cd /workspace/ER-NeRF/freqencoder && \
+    python setup.py build_ext --inplace
+
+# ==============================================================================
+# 阶段9: 下载预训练模型（自动化部分）
+# ==============================================================================
+# 创建模型目录
+RUN mkdir -p data_utils/face_parsing && \
+    mkdir -p data_utils/face_tracking/3DMM && \
+    mkdir -p data_utils/face_tracking/face_model/checkpoints
+
+# 下载Face parsing模型
+RUN source /opt/conda/etc/profile.d/conda.sh && \
+    conda activate ernerf && \
+    echo "===== Downloading face parsing model (79999_iter.pth) =====" && \
+    wget -O data_utils/face_parsing/79999_iter.pth \
+        https://github.com/YudongGuo/AD-NeRF/raw/master/data_util/face_parsing/79999_iter.pth && \
+    echo "Face parsing model downloaded successfully"
+
+# 下载3DMM模型文件（4个文件）
+RUN source /opt/conda/etc/profile.d/conda.sh && \
+    conda activate ernerf && \
+    echo "===== Downloading 3DMM models =====" && \
+    cd /workspace/ER-NeRF/data_utils/face_tracking/3DMM && \
+    wget -O exp_info.npy \
+        https://github.com/YudongGuo/AD-NeRF/raw/master/data_util/face_tracking/3DMM/exp_info.npy && \
+    wget -O keys_info.npy \
+        https://github.com/YudongGuo/AD-NeRF/raw/master/data_util/face_tracking/3DMM/keys_info.npy && \
+    wget -O sub_mesh.obj \
+        https://github.com/YudongGuo/AD-NeRF/raw/master/data_util/face_tracking/3DMM/sub_mesh.obj && \
+    wget -O topology_info.npy \
+        https://github.com/YudongGuo/AD-NeRF/raw/master/data_util/face_tracking/3DMM/topology_info.npy && \
+    echo "3DMM models downloaded successfully" && \
+    cd /workspace/ER-NeRF
+
+# BFM模型需要手动申请下载（https://faces.dmi.unibas.ch/bfm/main.php?nav=1-1-0&id=details）
+# 创建占位符说明文件
+RUN echo "========================================" > /workspace/ER-NeRF/data_utils/face_tracking/3DMM/BFM_README.txt && \
+    echo "BFM MODEL SETUP INSTRUCTIONS" >> /workspace/ER-NeRF/data_utils/face_tracking/3DMM/BFM_README.txt && \
+    echo "========================================" >> /workspace/ER-NeRF/data_utils/face_tracking/3DMM/BFM_README.txt && \
+    echo "" >> /workspace/ER-NeRF/data_utils/face_tracking/3DMM/BFM_README.txt && \
+    echo "The BFM (Basel Face Model) requires manual registration and download:" >> /workspace/ER-NeRF/data_utils/face_tracking/3DMM/BFM_README.txt && \
+    echo "1. Register at: https://faces.dmi.unibas.ch/bfm/main.php?nav=1-1-0&id=details" >> /workspace/ER-NeRF/data_utils/face_tracking/3DMM/BFM_README.txt && \
+    echo "2. Download the BFM model file" >> /workspace/ER-NeRF/data_utils/face_tracking/3DMM/BFM_README.txt && \
+    echo "3. Place it in this directory: data_utils/face_tracking/3DMM/" >> /workspace/ER-NeRF/data_utils/face_tracking/3DMM/BFM_README.txt && \
+    echo "4. Run conversion script:" >> /workspace/ER-NeRF/data_utils/face_tracking/3DMM/BFM_README.txt && \
+    echo "   cd data_utils/face_tracking" >> /workspace/ER-NeRF/data_utils/face_tracking/3DMM/BFM_README.txt && \
+    echo "   python convert_BFM.py" >> /workspace/ER-NeRF/data_utils/face_tracking/3DMM/BFM_README.txt && \
+    echo "" >> /workspace/ER-NeRF/data_utils/face_tracking/3DMM/BFM_README.txt && \
+    echo "Expected files after conversion:" >> /workspace/ER-NeRF/data_utils/face_tracking/3DMM/BFM_README.txt && \
+    echo "  - exp_para.npy" >> /workspace/ER-NeRF/data_utils/face_tracking/3DMM/BFM_README.txt && \
+    echo "  - tex_para.npy" >> /workspace/ER-NeRF/data_utils/face_tracking/3DMM/BFM_README.txt && \
+    echo "  - shape_para.npy" >> /workspace/ER-NeRF/data_utils/face_tracking/3DMM/BFM_README.txt && \
+    echo "" >> /workspace/ER-NeRF/data_utils/face_tracking/3DMM/BFM_README.txt && \
+    echo "Alternatively, you can mount these files via Docker volume:" >> /workspace/ER-NeRF/data_utils/face_tracking/3DMM/BFM_README.txt && \
+    echo "  docker run -v /host/path/bfm:/workspace/ER-NeRF/data_utils/face_tracking/3DMM ..." >> /workspace/ER-NeRF/data_utils/face_tracking/3DMM/BFM_README.txt
+
+# ==============================================================================
+# 阶段10: 创建目录结构
+# ==============================================================================
+RUN mkdir -p /workspace/data && \
+    mkdir -p /workspace/models/ER-NeRF && \
+    mkdir -p /workspace/processed && \
+    mkdir -p /workspace/logs && \
+    mkdir -p /workspace/results
+
+# ==============================================================================
+# 阶段11: 配置库链接
+# ==============================================================================
+RUN echo 'export LD_LIBRARY_PATH="$CONDA_PREFIX/lib"' >> ~/.bashrc && \
+    ln -sf $CONDA_PREFIX/lib/libcudart.so /usr/lib/libcudart.so || true
+
+# ==============================================================================
+# 阶段12: 复制启动脚本
+# ==============================================================================
+COPY docker/ernerf/scripts/ /workspace/scripts/
+RUN chmod +x /workspace/scripts/*.sh
+
+# 工作目录
+WORKDIR /workspace
+
+# 暴露端口（可选，用于Web服务）
+EXPOSE 8888
+
+# 健康检查
+HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
+    CMD python -c "import torch; import torch3d; assert torch.cuda.is_available()" || exit 1
+
+# 默认启动命令
+ENTRYPOINT ["/workspace/scripts/entrypoint.sh"]
+CMD ["server"]
