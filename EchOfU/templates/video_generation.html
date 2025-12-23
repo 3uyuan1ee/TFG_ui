@@ -246,10 +246,58 @@
                         <div class="control-title">
                             <span>文本输入</span>
                         </div>
-                        <textarea 
-                            class="text-input-area" 
+                        <textarea
+                            class="text-input-area"
                             placeholder="输入要生成视频的文字描述..."
                             name="target_text"></textarea>
+                    </div>
+
+                    <div class="control-group">
+                        <div class="control-title">
+                            <span>音频效果</span>
+                        </div>
+                        <div class="control-grid">
+                            <div>
+                                <label class="indicator-label">变调 (Pitch Shift)</label>
+                                <div style="display: flex; gap: var(--space-2); align-items: center; margin-top: var(--space-2);">
+                                    <input
+                                        type="range"
+                                        class="neon-input"
+                                        name="pitch"
+                                        id="pitchSlider"
+                                        min="-12"
+                                        max="12"
+                                        step="0.5"
+                                        value="0">
+                                    <span id="pitchValue" style="min-width: 60px; text-align: center; font-weight: 600; color: var(--neon-blue);">0</span>
+                                </div>
+                                <div style="display: flex; gap: var(--space-1); margin-top: var(--space-2); flex-wrap: wrap;">
+                                    <button type="button" class="neon-btn neon-btn-sm pitch-preset" data-pitch="-12">-12</button>
+                                    <button type="button" class="neon-btn neon-btn-sm pitch-preset" data-pitch="-7">-7</button>
+                                    <button type="button" class="neon-btn neon-btn-sm pitch-preset" data-pitch="-5">-5</button>
+                                    <button type="button" class="neon-btn neon-btn-sm pitch-preset" data-pitch="-3">-3</button>
+                                    <button type="button" class="neon-btn neon-btn-sm pitch-preset" data-pitch="0">0</button>
+                                    <button type="button" class="neon-btn neon-btn-sm pitch-preset" data-pitch="3">+3</button>
+                                    <button type="button" class="neon-btn neon-btn-sm pitch-preset" data-pitch="5">+5</button>
+                                    <button type="button" class="neon-btn neon-btn-sm pitch-preset" data-pitch="7">+7</button>
+                                    <button type="button" class="neon-btn neon-btn-sm pitch-preset" data-pitch="12">+12</button>
+                                </div>
+                                <small style="color: var(--text-secondary); font-size: 0.75rem; display: block; margin-top: var(--space-1);">
+                                    单位：半音 (Semitone)。负值降低音调，正值升高音调
+                                </small>
+                            </div>
+                            <div>
+                                <label class="indicator-label">音质预设</label>
+                                <select class="neon-input" name="pitch_quality" id="pitchQuality" style="margin-top: var(--space-2);">
+                                    <option value="fast">快速</option>
+                                    <option value="balanced" selected>平衡</option>
+                                    <option value="high_quality">高质量</option>
+                                </select>
+                                <small style="color: var(--text-secondary); font-size: 0.75rem; display: block; margin-top: var(--space-1);">
+                                    高质量模式处理时间较长但音质更好
+                                </small>
+                            </div>
+                        </div>
                     </div>
                     
                     <div class="generate-section">
@@ -497,7 +545,48 @@
 
             // 触发一次模型类型变化，以初始化模型列表
             await onModelTypeChange();
+
+            // 初始化变调控件
+            initPitchControls();
         });
+
+        // 变调控件初始化
+        function initPitchControls() {
+            const pitchSlider = document.getElementById('pitchSlider');
+            const pitchValue = document.getElementById('pitchValue');
+            const presetButtons = document.querySelectorAll('.pitch-preset');
+
+            // 滑块值变化时更新显示
+            pitchSlider.addEventListener('input', function() {
+                const value = parseFloat(this.value);
+                pitchValue.textContent = value > 0 ? `+${value}` : value;
+
+                // 更新预设按钮的选中状态
+                presetButtons.forEach(btn => {
+                    const btnPitch = parseFloat(btn.dataset.pitch);
+                    if (Math.abs(btnPitch - value) < 0.1) {
+                        btn.classList.add('selected');
+                    } else {
+                        btn.classList.remove('selected');
+                    }
+                });
+            });
+
+            // 预设按钮点击事件
+            presetButtons.forEach(btn => {
+                btn.addEventListener('click', function() {
+                    const pitchValue = parseFloat(this.dataset.pitch);
+                    pitchSlider.value = pitchValue;
+                    pitchSlider.dispatchEvent(new Event('input'));
+                });
+            });
+
+            // 初始化时标记 0 值按钮为选中
+            const zeroBtn = document.querySelector('.pitch-preset[data-pitch="0"]');
+            if (zeroBtn) {
+                zeroBtn.classList.add('selected');
+            }
+        }
 
         // 替换预览区域为 video 元素并播放
         function showGeneratedVideo(videoPath) {

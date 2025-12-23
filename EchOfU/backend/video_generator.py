@@ -2,10 +2,9 @@ import os
 import time
 import subprocess
 import shutil
-import librosa
-import soundfile as sf
 from .path_manager import PathManager
-from .voice_generator import get_voice_service,ServiceConfig
+from .voice_generator import get_voice_service, ServiceConfig
+from .pitch_shift import PitchShiftService, PitchShiftConfig
 
 def run_extract_audio_features(pm, wav_path, output_npy_path):
     """
@@ -102,34 +101,42 @@ def generate_video(data):
 
    
     # 3. [加分项] 音频变调处理 (Pitch Shift)
-    
+    # 使用新的 PitchShiftService 模块进行变调处理
+
     pitch_steps = data.get('pitch')
     if pitch_steps and current_audio_path and os.path.exists(current_audio_path):
         try:
             pitch_steps = float(pitch_steps)
             if pitch_steps != 0:
                 print(f"[backend.video_generator] 正在进行音频变调处理: {pitch_steps} steps")
-                
-                # 加载音频 (保留原始采样率)
-                y, sr = librosa.load(current_audio_path, sr=None)
-                
-                # 变调
-                y_shifted = librosa.effects.pitch_shift(y, sr=sr, n_steps=pitch_steps)
-                
-                # 保存变调后的文件到 res_voices
-                base_name = os.path.splitext(os.path.basename(current_audio_path))[0]
-                shifted_filename = f"{base_name}_pitch_{pitch_steps}.wav"
-                shifted_path = pm.get_res_voice_path(shifted_filename)
-                
-                sf.write(shifted_path, y_shifted, sr)
-                
-                # 更新当前音频路径指向变调后的文件
-                current_audio_path = shifted_path
-                print(f"[backend.video_generator] 变调处理完成: {current_audio_path}")
-                
+
+                # 使用 PitchShiftService 进行变调处理
+                # 服务会自动管理临时文件和清理
+                pitch_service = PitchShiftService(
+                    output_dir=pm.get_res_voice_path(),
+                    auto_cleanup=True  # 失败时自动清理
+                )
+
+                # 获取音质预设（从前端获取，默认 balanced）
+                pitch_quality = data.get('pitch_quality', 'balanced')
+
+                # 执行变调处理
+                result = pitch_service.shift_pitch(
+                    audio_path=current_audio_path,
+                    pitch_steps=pitch_steps,
+                    quality=pitch_quality  # 可配置: fast/balanced/high_quality
+                )
+
+                if result.success:
+                    current_audio_path = result.output_path
+                    print(f"[backend.video_generator] 变调处理完成: {result}")
+                else:
+                    print(f"[backend.video_generator] 变调处理失败: {result.error_message}")
+                    print("[backend.video_generator] 将继续使用原始音频")
+
         except Exception as e:
-            print(f"[backend.video_generator] 音频变调处理失败: {e}")
-            # 失败时不中断流程，继续使用变调前的音频
+            print(f"[backend.video_generator] 音频变调处理异常: {e}")
+            print("[backend.video_generator] 将继续使用原始音频")
 
     # 更新 data 中的音频路径，确保后续模型使用最终处理过的音频
     data['ref_audio'] = current_audio_path
