@@ -466,10 +466,10 @@
                     </h3>
                     <div class="config-items">
                         <div class="config-item">
-                            <div class="config-label">克隆音频编号</div>
+                            <div class="config-label">参考音频</div>
                             <div style="display: flex; gap: var(--space-2); align-items: stretch;">
-                                <select class="neon-input" name="ref_audio_id" id="voiceCloneSelect" style="flex: 1;">
-                                    <option value="">请选择克隆音频</option>
+                                <select class="neon-input" name="ref_audio" id="refAudioSelect" style="flex: 1;">
+                                    <option value="">请选择参考音频</option>
                                     <!-- 选项将通过JavaScript从后端加载 -->
                                 </select>
                                 <button class="neon-btn neon-btn-sm" id="refreshAudioBtn" title="刷新音频列表">
@@ -477,7 +477,7 @@
                                 </button>
                             </div>
                             <small style="color: var(--text-secondary); font-size: 0.875rem; margin-top: var(--space-1); display: block;">
-                                选择已克隆的音频编号
+                                选择已上传的参考音频文件
                             </small>
                         </div>
 
@@ -789,30 +789,30 @@
             }
         }
 
-        // 加载克隆音频列表
-        async function loadClonedAudios() {
+        // 加载参考音频列表
+        async function loadReferenceAudios() {
             try {
-                const response = await fetch('/api/cloned-audios');
+                const response = await fetch('/api/reference-audios');
                 const data = await response.json();
 
                 if (data.status === 'success') {
-                    const voiceSelect = document.getElementById('voiceCloneSelect');
-                    voiceSelect.innerHTML = '<option value="">请选择克隆音频</option>';
+                    const audioSelect = document.getElementById('refAudioSelect');
+                    audioSelect.innerHTML = '<option value="">请选择参考音频</option>';
 
-                    data.audios.forEach(audio => {
+                    data.files.forEach(file => {
                         const option = document.createElement('option');
-                        option.value = audio.id;
-                        option.textContent = `${audio.id} - ${audio.name} (${audio.created_at})`;
-                        option.title = `状态: ${audio.status}\n创建时间: ${audio.created_at}\n参考音频: ${audio.reference_audio}`;
-                        voiceSelect.appendChild(option);
+                        option.value = file.relative_path;
+                        option.textContent = `${file.filename} (${file.size_mb}MB)`;
+                        option.title = `创建时间: ${file.created_time}\n大小: ${file.size_mb}MB`;
+                        audioSelect.appendChild(option);
                     });
 
-                    console.log(`[UI] 加载了 ${data.audios.length} 个克隆音频`);
+                    console.log(`[UI] 加载了 ${data.files.length} 个参考音频`);
                 } else {
-                    console.error('加载克隆音频列表失败:', data.message);
+                    console.error('加载参考音频列表失败:', data.message);
                 }
             } catch (error) {
-                console.error('加载克隆音频列表出错:', error);
+                console.error('加载参考音频列表出错:', error);
             }
         }
 
@@ -823,7 +823,7 @@
             const formData = new FormData();
             formData.append('model_name', document.getElementById('modelSelect').value || 'ER-NeRF');
             formData.append('model_param', document.getElementById('modelPath').value || '');
-            formData.append('ref_audio_id', document.getElementById('voiceCloneSelect').value || '');
+            formData.append('ref_audio', document.getElementById('refAudioSelect').value || '');
             formData.append('api_choice', document.getElementById('apiSelect').value);
 
             try {
@@ -971,24 +971,6 @@
             }
         });
 
-        // 简化的音频刷新函数
-        async function refreshAudioList() {
-            const response = await fetch('/api/cloned-audios');
-            const data = await response.json();
-
-            if (data.status === 'success') {
-                const voiceSelect = document.getElementById('voiceCloneSelect');
-                voiceSelect.innerHTML = '<option value="">请选择克隆音频</option>';
-
-                data.audios.forEach(audio => {
-                    const option = document.createElement('option');
-                    option.value = audio.id;
-                    option.textContent = audio.id; // 简化显示，只显示ID
-                    voiceSelect.appendChild(option);
-                });
-            }
-        }
-
         // 音频刷新按钮事件监听器
         document.getElementById('refreshAudioBtn').addEventListener('click', async function() {
             const btn = this;
@@ -999,7 +981,7 @@
             btn.style.color = 'var(--neon-blue)';
 
             try {
-                await loadClonedAudios();
+                await loadReferenceAudios();
 
                 btn.innerHTML = '已刷新';
                 btn.style.color = 'var(--neon-green)';
@@ -1010,7 +992,7 @@
                     btn.style.color = '';
                 }, 2000);
             } catch (error) {
-                console.error('刷新克隆音频列表失败:', error);
+                console.error('刷新参考音频列表失败:', error);
 
                 btn.innerHTML = '刷新失败';
                 btn.style.color = 'var(--neon-red)';
@@ -1027,7 +1009,7 @@
         document.addEventListener('DOMContentLoaded', function() {
             initWaveform();
             loadModels();
-            loadClonedAudios();
+            loadReferenceAudios();
             setInterval(updateSystemStatus, 5000);
             updateSystemStatus();
         });

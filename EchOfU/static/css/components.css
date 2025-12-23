@@ -449,3 +449,546 @@ input:checked + .neon-slider:before { transform: translateX(24px); background-co
 .theme-transitioning {
     animation: theme-transition 0.3s ease-in-out;
 }
+
+/* ============================================================================= */
+/* 语音克隆组件样式 */
+/* ============================================================================= */
+
+/* 语音克隆界面 */
+.voice-clone-interface {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-6);
+    padding: var(--space-4);
+    max-width: 800px;
+    margin: 0 auto;
+}
+
+/* 克隆步骤 */
+.clone-step {
+    background: var(--surface-primary);
+    border: 1px solid var(--border-neon);
+    border-radius: var(--radius-lg);
+    padding: var(--space-5);
+    transition: all var(--transition-normal);
+    position: relative;
+}
+
+.clone-step:hover {
+    border-color: var(--neon-blue);
+    box-shadow: var(--shadow-soft);
+}
+
+.clone-step[data-step]::before {
+    content: '步骤 ' attr(data-step);
+    position: absolute;
+    top: -12px;
+    left: var(--space-4);
+    background: linear-gradient(135deg, var(--neon-blue), var(--neon-purple));
+    color: white;
+    padding: var(--space-1) var(--space-3);
+    border-radius: var(--radius-full);
+    font-size: 12px;
+    font-weight: 600;
+}
+
+/* 步骤指示器 */
+.step-indicator {
+    display: flex;
+    align-items: center;
+    gap: var(--space-3);
+    margin-bottom: var(--space-4);
+}
+
+.step-number {
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, var(--neon-blue), var(--neon-purple));
+    color: white;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: bold;
+    font-size: 18px;
+    box-shadow: 0 4px 12px rgba(43, 140, 255, 0.3);
+}
+
+.step-content {
+    flex: 1;
+}
+
+.step-title {
+    font-size: 18px;
+    font-weight: 600;
+    color: var(--text-primary);
+    margin-bottom: var(--space-1);
+}
+
+.step-description {
+    font-size: 14px;
+    color: var(--text-secondary);
+    line-height: 1.5;
+}
+
+/* 上传区域 */
+.upload-area {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-3);
+    align-items: center;
+    padding: var(--space-4);
+    background: var(--surface-secondary);
+    border: 2px dashed rgba(43, 140, 255, 0.3);
+    border-radius: var(--radius-md);
+    transition: all var(--transition-normal);
+}
+
+.upload-area:hover {
+    border-color: var(--neon-blue);
+    background: rgba(43, 140, 255, 0.05);
+}
+
+.audio-file-input {
+    display: none;
+}
+
+.upload-btn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+.upload-status {
+    font-size: 14px;
+    color: var(--text-secondary);
+    text-align: center;
+    margin-top: var(--space-2);
+}
+
+/* 音频选择区域 */
+.audio-select-area {
+    display: flex;
+    gap: var(--space-2);
+    align-items: center;
+    margin-bottom: var(--space-4);
+}
+
+.audio-select {
+    flex: 1;
+    min-width: 0;
+}
+
+.refresh-btn {
+    flex-shrink: 0;
+    white-space: nowrap;
+}
+
+/* 音频播放器容器 */
+.audio-player-container {
+    margin-top: var(--space-3);
+    min-height: 60px;
+}
+
+.audio-player {
+    background: var(--surface-secondary);
+    border: 1px solid var(--border-neon);
+    border-radius: var(--radius-md);
+    padding: var(--space-3);
+    margin-bottom: var(--space-3);
+}
+
+.audio-player h3 {
+    margin: 0 0 var(--space-2) 0;
+    color: var(--text-primary);
+    font-size: 16px;
+    font-weight: 600;
+}
+
+.audio-element {
+    width: 100%;
+    height: 40px;
+    outline: none;
+    border-radius: var(--radius-sm);
+}
+
+.audio-element::-webkit-media-controls-panel {
+    background: var(--surface-primary);
+}
+
+.audio-path {
+    font-size: 12px;
+    color: var(--text-secondary);
+    margin-top: var(--space-2);
+    word-break: break-all;
+    font-family: monospace;
+}
+
+/* 克隆控制区域 */
+.clone-controls {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-4);
+}
+
+.text-input-area {
+    width: 100%;
+}
+
+.clone-text-input {
+    min-height: 100px;
+    resize: vertical;
+}
+
+.optional-controls {
+    display: flex;
+    gap: var(--space-3);
+    align-items: center;
+}
+
+.output-filename-input {
+    flex: 1;
+    max-width: 300px;
+}
+
+.clone-btn {
+    align-self: flex-start;
+    min-width: 150px;
+}
+
+/* 进度容器 */
+.progress-container {
+    background: var(--surface-secondary);
+    border: 1px solid var(--border-neon);
+    border-radius: var(--radius-md);
+    padding: var(--space-3);
+    margin-top: var(--space-3);
+}
+
+.progress-info {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: var(--space-2);
+    font-size: 14px;
+}
+
+.progress-status {
+    color: var(--text-primary);
+    font-weight: 500;
+}
+
+.progress-percent {
+    color: var(--neon-blue);
+    font-weight: 600;
+}
+
+.progress-bar {
+    width: 100%;
+    height: 8px;
+    background: var(--surface-primary);
+    border-radius: var(--radius-full);
+    overflow: hidden;
+    position: relative;
+}
+
+.progress-fill {
+    height: 100%;
+    background: linear-gradient(90deg, var(--neon-blue), var(--neon-purple));
+    border-radius: var(--radius-full);
+    transition: width 0.3s ease;
+    position: relative;
+}
+
+.progress-fill::after {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.3), transparent);
+    animation: shimmer 2s infinite;
+}
+
+/* 结果展示区域 */
+.clone-result {
+    background: var(--surface-primary);
+    border: 1px solid var(--border-neon);
+    border-radius: var(--radius-lg);
+    padding: var(--space-5);
+    margin-top: var(--space-4);
+}
+
+.result-placeholder {
+    text-align: center;
+    padding: var(--space-8) var(--space-4);
+    color: var(--text-secondary);
+}
+
+.placeholder-icon {
+    font-size: 48px;
+    margin-bottom: var(--space-3);
+    opacity: 0.6;
+}
+
+.result-placeholder h3 {
+    color: var(--text-primary);
+    margin: var(--space-2) 0;
+    font-size: 20px;
+    font-weight: 600;
+}
+
+.result-placeholder p {
+    margin: 0;
+    line-height: 1.6;
+}
+
+/* 成功提示 */
+.success-alert {
+    display: flex;
+    gap: var(--space-3);
+    align-items: flex-start;
+    background: rgba(34, 197, 94, 0.1);
+    border: 1px solid rgba(34, 197, 94, 0.3);
+    border-radius: var(--radius-md);
+    padding: var(--space-3);
+    margin-bottom: var(--space-4);
+}
+
+.success-icon {
+    font-size: 24px;
+    flex-shrink: 0;
+    margin-top: 2px;
+}
+
+.success-content {
+    flex: 1;
+}
+
+.success-title {
+    color: var(--text-primary);
+    font-weight: 600;
+    margin-bottom: var(--space-1);
+}
+
+.success-message {
+    color: var(--text-secondary);
+    font-size: 14px;
+    line-height: 1.5;
+}
+
+.success-detail {
+    color: var(--text-secondary);
+    font-size: 12px;
+    margin-top: var(--space-1);
+    opacity: 0.8;
+}
+
+/* 错误提示 */
+.error-alert {
+    display: flex;
+    gap: var(--space-3);
+    align-items: flex-start;
+    background: rgba(239, 68, 68, 0.1);
+    border: 1px solid rgba(239, 68, 68, 0.3);
+    border-radius: var(--radius-md);
+    padding: var(--space-3);
+    margin-bottom: var(--space-4);
+}
+
+.error-icon {
+    font-size: 24px;
+    flex-shrink: 0;
+    margin-top: 2px;
+}
+
+.error-content {
+    flex: 1;
+}
+
+.error-title {
+    color: var(--text-primary);
+    font-weight: 600;
+    margin-bottom: var(--space-1);
+}
+
+.error-message {
+    color: var(--text-secondary);
+    font-size: 14px;
+    line-height: 1.5;
+}
+
+/* 错误占位符 */
+.error-placeholder {
+    text-align: center;
+    padding: var(--space-4);
+    color: var(--text-secondary);
+    background: rgba(239, 68, 68, 0.05);
+    border: 1px solid rgba(239, 68, 68, 0.2);
+    border-radius: var(--radius-md);
+}
+
+.error-placeholder h3 {
+    color: var(--text-primary);
+    margin: 0 0 var(--space-2) 0;
+    font-size: 16px;
+}
+
+.error-placeholder p {
+    margin: 0 0 var(--space-2) 0;
+    font-size: 14px;
+}
+
+.error-placeholder small {
+    font-size: 12px;
+    opacity: 0.7;
+    word-break: break-all;
+}
+
+/* 按钮状态 */
+.btn-loading {
+    opacity: 0.7;
+    cursor: wait;
+}
+
+.btn-success {
+    background: linear-gradient(135deg, #22c55e, #16a34a) !important;
+    color: white !important;
+}
+
+.btn-error {
+    background: linear-gradient(135deg, #ef4444, #dc2626) !important;
+    color: white !important;
+}
+
+/* 通知系统 */
+.notification {
+    position: fixed;
+    top: var(--space-4);
+    right: var(--space-4);
+    z-index: 9999;
+    max-width: 400px;
+    background: var(--surface-primary);
+    border: 1px solid var(--border-neon);
+    border-radius: var(--radius-md);
+    padding: var(--space-3);
+    box-shadow: var(--shadow-strong);
+    display: flex;
+    gap: var(--space-2);
+    align-items: center;
+    transform: translateX(100%);
+    opacity: 0;
+    transition: all var(--transition-normal);
+}
+
+.notification.show {
+    transform: translateX(0);
+    opacity: 1;
+}
+
+.notification-icon {
+    font-size: 18px;
+    flex-shrink: 0;
+}
+
+.notification-message {
+    flex: 1;
+    font-size: 14px;
+    color: var(--text-primary);
+    line-height: 1.4;
+}
+
+.notification-success {
+    border-color: rgba(34, 197, 94, 0.3);
+    background: rgba(34, 197, 94, 0.05);
+}
+
+.notification-error {
+    border-color: rgba(239, 68, 68, 0.3);
+    background: rgba(239, 68, 68, 0.05);
+}
+
+.notification-warning {
+    border-color: rgba(245, 158, 11, 0.3);
+    background: rgba(245, 158, 11, 0.05);
+}
+
+.notification-info {
+    border-color: rgba(59, 130, 246, 0.3);
+    background: rgba(59, 130, 246, 0.05);
+}
+
+/* 按钮尺寸 */
+.neon-btn-sm {
+    padding: var(--space-1) var(--space-2);
+    font-size: 12px;
+}
+
+.neon-btn-lg {
+    padding: var(--space-3) var(--space-6);
+    font-size: 16px;
+}
+
+.neon-btn-primary {
+    background: linear-gradient(135deg, var(--neon-blue), var(--neon-purple)) !important;
+    color: white !important;
+    border: none !important;
+}
+
+.neon-btn-secondary {
+    background: var(--surface-secondary) !important;
+    color: var(--text-primary) !important;
+    border: 1px solid var(--border-neon) !important;
+}
+
+/* 响应式设计 */
+@media (max-width: 768px) {
+    .voice-clone-interface {
+        padding: var(--space-3);
+        gap: var(--space-4);
+    }
+
+    .clone-step {
+        padding: var(--space-4);
+    }
+
+    .step-indicator {
+        flex-direction: column;
+        text-align: center;
+        gap: var(--space-2);
+    }
+
+    .step-number {
+        margin: 0 auto;
+    }
+
+    .upload-area {
+        padding: var(--space-3);
+    }
+
+    .audio-select-area {
+        flex-direction: column;
+        align-items: stretch;
+    }
+
+    .optional-controls {
+        flex-direction: column;
+        align-items: stretch;
+    }
+
+    .output-filename-input {
+        max-width: none;
+    }
+
+    .clone-btn {
+        align-self: stretch;
+        width: 100%;
+    }
+
+    .notification {
+        top: var(--space-2);
+        right: var(--space-2);
+        left: var(--space-2);
+        max-width: none;
+    }
+}

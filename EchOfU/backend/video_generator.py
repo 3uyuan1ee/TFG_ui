@@ -83,7 +83,6 @@ def generate_video(data):
             timestamp = int(time.time())
             output_filename = f"tts_video_{timestamp}.wav"
 
-            # 调用 CosyVoice 生成
             result = service.clone_voice(
                 text=text,
                 reference_audio=ref_audio_path if ref_audio_path else None,

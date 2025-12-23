@@ -2,8 +2,9 @@ import speech_recognition as sr
 from zhipuai import ZhipuAI
 import os
 import shutil
+import time
 from .path_manager import PathManager
-from .voice_generator import OpenVoiceService
+from .voice_generator import get_voice_service,ServiceConfig
 # 需要导入 video_generator 中的函数来生成最终视频
 from .video_generator import generate_video
 
@@ -23,17 +24,16 @@ def chat_response(data):
     pm.ensure_directory(pm.get_res_video_path())
     pm.ensure_directory(pm.get_res_voice_path())
     
-    # 1. 语音转文字
-    # 假设输入音频为 static/audios/input.wav (对应 PathManager 的 get_static_path)
+    # 1. 语音转文字 - 使用path_manager管理路径
     input_audio_dir = pm.get_static_path("audios")
     pm.ensure_directory(input_audio_dir)
     input_audio = os.path.join(input_audio_dir, "input.wav")
-    
-    # 文本文件存放目录 static/text/
+
+    # 文本文件存放目录
     text_dir = pm.get_static_path("text")
     pm.ensure_directory(text_dir)
     input_text_file = os.path.join(text_dir, "input.txt")
-    
+
     user_text = audio_to_text(input_audio, input_text_file)
     if not user_text:
         print("[backend.chat_engine] 无法识别语音或文件不存在，使用默认问候")
@@ -48,34 +48,43 @@ def chat_response(data):
     ai_response_text = get_ai_response(input_text_file, output_text_file, api_key, model)
     print(f"[backend.chat_engine] AI回复文本: {ai_response_text}")
 
-    # 3. 语音合成 (OpenVoice)
-    # 虽然 OpenVoiceService 内部可能也有路径管理，但为了统一结果存放，我们这里进行调度
-    ov = OpenVoiceService.get_instance()
+    # 3. 语音合成 (使用新的voice_generator)
+    try:
+        # 使用人机对话系统中的参考音频
+        ref_audio = data.get('ref_audio', '')
 
-    # 获取前端传递的 speaker_id，如果没传则默认
-    speaker_id = data.get('speaker_id', 'default')
-    available_speakers = ov.list_available_speakers()
-    
-    # 如果指定 ID 不在列表里，简单回退策略 (或者保留原ID让底层处理)
-    if speaker_id not in available_speakers and available_speakers:
-        print(f"[backend.chat_engine] Warning: Speaker {speaker_id} not found.")
+        # 创建服务实例
+        config = ServiceConfig(enable_vllm=True)
+        service = get_voice_service(config)
 
-    print(f"[backend.chat_engine] 使用说话人: {speaker_id}")
+        print(f"[backend.chat_engine] 参考音频: {ref_audio}")
 
-    # 生成语音 (OpenVoice 返回的是临时路径)
-    generated_temp_path = ov.generate_speech(ai_response_text, speaker_id)
-    
-    # 移动到统一路径 static/voices/res_voices/
-    timestamp = int(time.time())
-    voice_path = pm.get_res_voice_path(f"chat_resp_{speaker_id}_{timestamp}.wav")
-    
-    if generated_temp_path and os.path.exists(generated_temp_path):
-        shutil.move(generated_temp_path, voice_path)
-    else:
-        # 如果生成失败，voice_path 保持为 temp 路径 (可能为 None)
-        voice_path = generated_temp_path 
+        # 使用path_manager处理路径转换
+        if ref_audio and not os.path.isabs(ref_audio):
+            # 将相对路径转换为绝对路径（相对于项目根目录）
+            ref_audio = pm.get_static_path(ref_audio)
 
-    print(f"[backend.chat_engine] 语音合成完成: {voice_path}")
+        # 生成语音 - voice_generator会生成在res_voices中，这里就不用再管理路径了
+        timestamp = int(time.time())
+        output_filename = f"chat_resp_{timestamp}.wav"
+
+        result = service.clone_voice(
+            text=ai_response_text,
+            reference_audio=ref_audio if ref_audio else None,
+            speed=1.2,
+            output_filename=output_filename
+        )
+
+        if result.is_success:
+            voice_path = result.audio_path
+            print(f"[backend.chat_engine] 语音合成完成: {voice_path}")
+        else:
+            print(f"[backend.chat_engine] 语音合成失败: {result.error_message}")
+            voice_path = None
+
+    except Exception as e:
+        print(f"[backend.chat_engine] 语音合成错误: {e}")
+        voice_path = None
 
     # 4. 调用视频生成
     # 构造参数调用 video_generator.generate_video
@@ -94,7 +103,6 @@ def chat_response(data):
         'ref_audio': voice_path, # 传入刚才生成的语音
         'gpu_choice': 'GPU0',
         'target_text': '', # 留空，避免 video_generator 重复 TTS
-        'speaker_id': speaker_id,
         'pitch': data.get('pitch', 0) # 传递可能的变调参数
     }
     

@@ -20,7 +20,8 @@ from datetime import datetime
 from backend.video_generator import generate_video
 from backend.model_trainer import train_model
 from backend.chat_engine import chat_response
-from backend.voice_generator import OpenVoiceService
+from backend.voice_generator import get_voice_service, ServiceConfig
+from backend.file_manager import file_manager
 from backend.api_handlers import (
     upload_reference_audio as api_upload_reference_audio,
     get_reference_audios as api_get_reference_audios,
@@ -49,12 +50,13 @@ except ImportError:
 # Flask应用初始化
 # =============================================================================
 app = Flask(__name__)
-app.config['UPLOAD_FOLDER'] = 'static/uploads'
+app.config['UPLOAD_FOLDER'] = file_manager.path_manager.get_static_path()
 app.config['MAX_CONTENT_LENGTH'] = 100 * 1024 * 1024  # 限制上传文件大小为100MB
 
-# 确保必要的目录结构存在（基本目录）
-for folder in [ 'EchOfU/static/audios', 'EchOfU/static/videos',  'EchOfU/static/history']:
-    os.makedirs(folder, exist_ok=True)
+# FileManager初始化时会自动确保目录存在
+print(f"[App] 使用FileManager进行文件管理")
+print(f"[App] 参考音频目录: {file_manager.path_manager.get_ref_voice_path()}")
+print(f"[App] 结果音频目录: {file_manager.path_manager.get_res_voice_path()}")
 
 # =============================================================================
 # 页面路由
@@ -182,112 +184,76 @@ def audio_clone():
         # ==================== POST请求：处理音频克隆 ====================
         try:
             # 收集音频克隆参数
-            data = {
-                "original_audio_path": request.form.get('original_audio_path', ''),  # 原始音频文件路径
-                "audio_id": request.form.get('audio_id', ''),                        # 源音频ID
-                "target_audio_id": request.form.get('target_audio_id', ''),          # 目标音频ID
-                "gen_audio_id": request.form.get('gen_audio_id', ''),                # 生成音频ID
-                "generate_text": request.form.get('generate_text', '')               # 生成文本内容
-            }
+            ref_audio_path = request.form.get('ref_audio_path', '').strip()      # 参考音频文件路径
+            generate_text = request.form.get('generate_text', '').strip()          # 生成文本内容
+            output_filename = request.form.get('output_filename', '').strip()        # 输出文件名
 
-            # 验证必要参数 - 区分克隆模式和生成模式
-            if data['generate_text']:
-                # 生成模式：只需要音频ID和文本
-                if not data['audio_id']:
-                    return jsonify({
-                        'status': 'error',
-                        'message': '缺少必要参数：音频ID'
-                    }), 400
-                if not data['generate_text'].strip():
-                    return jsonify({
-                        'status': 'error',
-                        'message': '缺少必要参数：生成文本'
-                    }), 400
-            else:
-                # 克隆模式：需要原音频路径和目标音频ID
-                if not data['original_audio_path'] or not data['target_audio_id']:
-                    return jsonify({
-                        'status': 'error',
-                        'message': '缺少必要参数：原音频路径和目标音频ID'
-                    }), 400
+            # 验证必要参数
+            if not ref_audio_path:
+                return jsonify({
+                    'status': 'error',
+                    'message': '请选择参考音频'
+                }), 400
 
-            # 创建OpenVoice服务实例（使用标准单例方法）
-            ov_service = OpenVoiceService.get_instance()
+            if not generate_text:
+                return jsonify({
+                    'status': 'error',
+                    'message': '请输入要生成的文本内容'
+                }), 400
 
-            if data['generate_text']:
-                # ==================== 生成模式：使用已有特征生成音频 ====================
-                audio_id = data['audio_id']  # 使用音频ID而不是target_audio_id
-                generate_text = data['generate_text']
+            # 创建服务实例
+            config = ServiceConfig(enable_vllm=True)  # 启用VLLM加速
+            service = get_voice_service(config)
 
-                print(f"[音频生成] 开始生成音频:")
-                print(f"[音频生成] 音频ID: {audio_id}")
-                print(f"[音频生成] 生成文本: {generate_text}")
+            print(f"[音频克隆] 开始语音克隆:")
+            print(f"[音频克隆] 参考音频: {ref_audio_path}")
+            print(f"[音频克隆] 生成文本: {generate_text}")
 
-                # 直接使用已有特征生成音频
-                generated_audio_path = ov_service.generate_speech(
-                    text=generate_text,
-                    speaker_id=audio_id
-                )
+            # 将相对路径转换为绝对路径
+            if not os.path.isabs(ref_audio_path):
+                current_dir = os.path.dirname(os.path.abspath(__file__))
+                ref_audio_path = os.path.join(current_dir, ref_audio_path)
+                ref_audio_path = os.path.normpath(ref_audio_path)
 
-                if generated_audio_path:
-                    # 转换为相对路径供前端使用
-                    # 获取当前Flask应用文件所在目录作为基准
-                    current_dir = os.path.dirname(os.path.abspath(__file__))
-                    if generated_audio_path.startswith(current_dir):
-                        relative_path = generated_audio_path[len(current_dir):].lstrip('/\\')
-                    else:
-                        # 如果不是以当前目录开头，直接使用文件名部分
-                        relative_path = os.path.basename(generated_audio_path)
-                        # 如果文件在static/voices/res_voices下，保留路径
-                        if 'static/voices/res_voices' in generated_audio_path:
-                            parts = generated_audio_path.split('static/voices/res_voices')
-                            if len(parts) > 1:
-                                relative_path = f"static/voices/res_voices{parts[1]}"
+            # 执行语音克隆
+            result = service.clone_voice(
+                text=generate_text,
+                reference_audio=ref_audio_path,
+                speed=1.2,
+                output_filename=output_filename if output_filename else None
+            )
 
-                    print(f"[音频生成] 路径转换: {generated_audio_path} -> {relative_path}")
+            if result.is_success:
+                # 转换为相对路径供前端使用
+                current_dir = os.path.dirname(os.path.abspath(__file__))
+                generated_audio_path = result.audio_path
 
-                    return jsonify({
-                        'status': 'success',
-                        'message': '音频生成成功',
-                        'cloned_audio_path': relative_path
-                    })
+                if generated_audio_path.startswith(current_dir):
+                    relative_path = generated_audio_path[len(current_dir):].lstrip('/\\')
                 else:
-                    return jsonify({
-                        'status': 'error',
-                        'message': '语音生成失败'
-                    }), 500
+                    # 如果文件在static/voices/res_voices下，保留路径
+                    if 'static/voices/res_voices' in generated_audio_path:
+                        relative_path = f"static/voices/res_voices{generated_audio_path.split('static/voices/res_voices')[1]}"
+                    else:
+                        relative_path = os.path.basename(generated_audio_path)
 
-            else:
-                # ==================== 克隆模式：提取说话人特征 ====================
-                # 将相对路径转换为绝对路径
-                original_audio_path = data['original_audio_path']
-                if not os.path.isabs(original_audio_path):
-                    # 获取当前Flask应用的目录作为基准
-                    current_dir = os.path.dirname(os.path.abspath(__file__))
-                    original_audio_path = os.path.join(current_dir, original_audio_path)
-                    original_audio_path = os.path.normpath(original_audio_path)
+                print(f"[音频克隆] 语音克隆成功: {result.generation_time:.2f}秒")
+                print(f"[音频克隆] 路径转换: {generated_audio_path} -> {relative_path}")
 
-                print(f"[音频克隆] 开始处理克隆请求:")
-                print(f"[音频克隆] 原音频路径: {data['original_audio_path']} -> {original_audio_path}")
-                print(f"[音频克隆] 目标音频ID: {data['target_audio_id']}")
-
-                # 提取说话人特征
-                if not ov_service.extract_and_save_speaker_feature(
-                    speaker_id=data['target_audio_id'],
-                    reference_audio=original_audio_path
-                ):
-                    return jsonify({
-                        'status': 'error',
-                        'message': '说话人特征提取失败'
-                    }), 500
-
-                # 克隆模式：只进行特征提取，不生成音频
                 return jsonify({
                     'status': 'success',
-                    'message': '说话人特征提取完成，可以用于后续音频生成'
+                    'message': '语音克隆成功',
+                    'cloned_audio_path': relative_path,
+                    'generation_time': result.generation_time
                 })
+            else:
+                return jsonify({
+                    'status': 'error',
+                    'message': f'语音克隆失败: {result.error_message}'
+                }), 500
 
         except Exception as e:
+            print(f"[音频克隆] 请求失败: {e}")
             return jsonify({
                 'status': 'error',
                 'message': str(e)
@@ -302,28 +268,34 @@ def audio_clone():
 
 @app.route('/api/cloned-audios', methods=['GET'])
 def get_cloned_audios():
-    """获取已克隆的音频列表API - 为页面提供数据"""
+    """获取已克隆的音频列表API - 获取生成的音频文件列表"""
     try:
-        # 使用OpenVoiceService获取实际已保存的说话人特征
-        ov_service = OpenVoiceService.get_instance()
-        available_speakers = ov_service.list_available_speakers()
-
-        # 获取说话人特征信息
-        speaker_features = ov_service.speaker_features
+        # 获取生成的音频文件列表（res_voices）
+        res_voices_dir = file_manager.path_manager.get_res_voice_path()
         cloned_audios = []
 
-        for speaker_id in available_speakers:
-            if speaker_id in speaker_features:
-                feature_info = speaker_features[speaker_id]
-                cloned_audios.append({
-                    "id": speaker_id,
-                    "name": speaker_id,
-                    "created_at": feature_info.get('created_time', '未知时间'),
-                    "reference_audio": feature_info.get('reference_audio', '未知'),
-                    "status": "已提取特征"
-                })
+        if os.path.exists(res_voices_dir):
+            for filename in os.listdir(res_voices_dir):
+                if filename.endswith(('.wav', '.mp3', '.m4a', '.flac', '.ogg')):
+                    file_path = os.path.join(res_voices_dir, filename)
+                    file_stat = os.stat(file_path)
 
-        print(f"[API] 获取到 {len(cloned_audios)} 个已克隆的音频")
+                    # 获取相对路径
+                    relative_path = file_manager._get_relative_path(file_path)
+
+                    cloned_audios.append({
+                        "id": filename,
+                        "name": filename,
+                        "path": relative_path,
+                        "created_at": datetime.fromtimestamp(file_stat.st_mtime).strftime('%Y-%m-%d %H:%M:%S'),
+                        "size_mb": round(file_stat.st_size / (1024 * 1024), 2),
+                        "status": "已生成"
+                    })
+
+        # 按创建时间降序排列
+        cloned_audios.sort(key=lambda x: x['created_at'], reverse=True)
+
+        print(f"[API] 获取到 {len(cloned_audios)} 个生成的音频")
         return jsonify({
             'status': 'success',
             'audios': cloned_audios,
@@ -331,7 +303,7 @@ def get_cloned_audios():
         })
 
     except Exception as e:
-        print(f"[API] 获取已克隆音频列表失败: {e}")
+        print(f"[API] 获取生成音频列表失败: {e}")
         return jsonify({
             'status': 'error',
             'message': str(e),
@@ -376,10 +348,10 @@ def chat_system():
         # ==================== POST请求：处理对话生成 ====================
         try:
             # 收集对话参数
-            # ToDo : 这里参数有问题，后续需要调整
             data = {
                 "model_name": request.form.get('model_name', 'SyncTalk'),        # 对话模型选择
                 "model_param": request.form.get('model_param', ''),              # 模型参数路径
+                "ref_audio": request.form.get('ref_audio', ''),                  # 参考音频路径
                 "voice_clone": request.form.get('voice_clone', 'false'),          # 是否启用语音克隆
                 "api_choice": request.form.get('api_choice', 'glm-4-plus')        # API模型选择
             }
@@ -502,4 +474,5 @@ if __name__ == '__main__':
     - port=5001: 使用5001端口（避免与其他服务冲突）
     - host='0.0.0.0': 允许外部访问（不仅限于localhost）
     """
-    app.run(debug=True, port=5001, host='0.0.0.0')
+    # 注意：下载大模型时建议关闭debug模式，避免自动重载中断下载
+    app.run(debug=False, port=5001, host='0.0.0.0')

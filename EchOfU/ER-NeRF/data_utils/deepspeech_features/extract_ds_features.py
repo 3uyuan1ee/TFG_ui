@@ -72,11 +72,18 @@ def extract_features(in_audios,
         num_frames_info = train_df["Count"].values
         assert (len(num_frames_info) == len(in_audios))
 
+    # for i, in_audio in enumerate(in_audios):
+    #     if not out_files[i]:
+    #         file_stem, _ = os.path.splitext(in_audio)
+    #         out_files[i] = file_stem + ".npy"
+    #         print(out_files[i])
     for i, in_audio in enumerate(in_audios):
         if not out_files[i]:
-            file_stem, _ = os.path.splitext(in_audio)
-            out_files[i] = file_stem + ".npy"
-            #print(out_files[i])
+            out_files[i] = os.path.join(
+                os.path.dirname(in_audio),
+                "aud_ds.npy"
+            )
+            print(out_files[i])
     conv_audios_to_deepspeech(
         audios=in_audios,
         out_files=out_files,

@@ -98,6 +98,60 @@ class PathManager:
         """获取OpenVoice模型路径 (models/OpenVoice/)"""
         return self.get_models_path("OpenVoice", *path_parts)
 
+    def get_cosyvoice_path(self, *path_parts):
+        """获取CosyVoice相关路径"""
+        return self.get_root_begin_path("CosyVoice", *path_parts)
+
+    def get_cosyvoice_model_path(self, *path_parts):
+        """获取CosyVoice模型路径 (CosyVoice/pretrained_models/)"""
+        return self.get_cosyvoice_path("pretrained_models", *path_parts)
+
+    def get_cosyvoice3_path(self, *path_parts):
+        """获取CosyVoice3模型路径 (CosyVoice/pretrained_models/Fun-CosyVoice3-0.5B/)"""
+        return self.get_cosyvoice_model_path("Fun-CosyVoice3-0.5B", *path_parts)
+
+    def get_cosyvoice_models_path(self):
+        """获取CosyVoice所有模型存储目录"""
+        return self.get_cosyvoice_model_path()
+
+    # CosyVoice3 具体模型路径
+    def get_cosyvoice3_fun_model_path(self):
+        """获取Fun-CosyVoice3-0.5B模型路径"""
+        return self.get_cosyvoice_model_path("Fun-CosyVoice3-0.5B")
+
+    def get_cosyvoice3_2512_model_path(self):
+        """获取Fun-CosyVoice3-0.5B-2512模型路径"""
+        return self.get_cosyvoice_model_path("Fun-CosyVoice3-0.5B-2512")
+
+    def get_cosyvoice2_model_path(self):
+        """获取CosyVoice2-0.5B模型路径"""
+        return self.get_cosyvoice_model_path("CosyVoice2-0.5B")
+
+    def get_cosyvoice_300m_model_path(self):
+        """获取CosyVoice-300M模型路径"""
+        return self.get_cosyvoice_model_path("CosyVoice-300M")
+
+    def get_cosyvoice_300m_sft_model_path(self):
+        """获取CosyVoice-300M-SFT模型路径"""
+        return self.get_cosyvoice_model_path("CosyVoice-300M-SFT")
+
+    def get_cosyvoice_300m_instruct_model_path(self):
+        """获取CosyVoice-300M-Instruct模型路径"""
+        return self.get_cosyvoice_model_path("CosyVoice-300M-Instruct")
+
+    def get_cosyvoice_ttsfrd_model_path(self):
+        """获取CosyVoice-ttsfrd模型路径"""
+        return self.get_cosyvoice_model_path("CosyVoice-ttsfrd")
+
+    # 获取模型状态文件路径
+    def get_model_status_file_path(self):
+        """获取模型状态文件路径"""
+        return self.get_cosyvoice_path("models_status.json")
+
+    def get_download_cache_path(self):
+        """获取下载缓存目录"""
+        return self.get_cosyvoice_path("download_cache")
+
     def get_speaker_features_path(self):
         """获取说话人特征文件路径 (models/OpenVoice/speaker_features.json)"""
         return self.get_openvoice_model_path("speaker_features.json")
@@ -212,6 +266,105 @@ class PathManager:
     def is_directory(self, path):
         """检查路径是否为目录"""
         return os.path.isdir(path)
+
+    # ==================== CosyVoice 模型完整性检查 ====================
+
+    def check_cosyvoice3_model_integrity(self, model_path=None) -> tuple:
+        """
+        检查 CosyVoice3 模型完整性
+
+        Args:
+            model_path: 模型路径，默认为 Fun-CosyVoice3-0.5B-2512
+
+        Returns:
+            tuple: (is_complete: bool, missing_files: list, error_msg: str)
+        """
+        if model_path is None:
+            model_path = self.get_cosyvoice3_2512_model_path()
+
+        try:
+            if not os.path.exists(model_path):
+                return False, [], f"模型目录不存在: {model_path}"
+
+            # CosyVoice3 必需的文件
+            required_model_files = ['llm.pt', 'flow.pt', 'hift.pt']
+            required_config_files = ['cosyvoice3.yaml']
+            required_assets = ['campplus.onnx', 'speech_tokenizer_v3.onnx']
+
+            missing_files = []
+
+            # 检查配置文件
+            for config_file in required_config_files:
+                file_path = os.path.join(model_path, config_file)
+                if not os.path.exists(file_path):
+                    missing_files.append(f"配置文件: {config_file}")
+
+            # 检查模型权重文件
+            for model_file in required_model_files:
+                file_path = os.path.join(model_path, model_file)
+                if not os.path.exists(file_path):
+                    missing_files.append(f"模型权重: {model_file}")
+
+            # 检查资源文件
+            for asset in required_assets:
+                file_path = os.path.join(model_path, asset)
+                if not os.path.exists(file_path):
+                    missing_files.append(f"资源文件: {asset}")
+
+            # 检查 CosyVoice-BlankEN 子模型
+            blanken_dir = os.path.join(model_path, 'CosyVoice-BlankEN')
+            if os.path.exists(blanken_dir):
+                # 检查子模型权重文件
+                weight_patterns = ['pytorch_model.bin', 'model.safetensors']
+                has_weights = False
+                for file in os.listdir(blanken_dir):
+                    if any(file.endswith(pattern) for pattern in weight_patterns):
+                        has_weights = True
+                        break
+
+                if not has_weights:
+                    missing_files.append("CosyVoice-BlankEN 子模型权重文件 (pytorch_model.bin 或 model.safetensors)")
+
+            is_complete = len(missing_files) == 0
+            error_msg = f"缺失 {len(missing_files)} 个必需文件" if missing_files else ""
+
+            return is_complete, missing_files, error_msg
+
+        except Exception as e:
+            return False, [], f"完整性检查异常: {str(e)}"
+
+    def get_model_disk_size(self, model_path=None) -> tuple:
+        """
+        获取模型占用的磁盘空间
+
+        Args:
+            model_path: 模型路径
+
+        Returns:
+            tuple: (size_bytes: int, size_mb: float)
+        """
+        if model_path is None:
+            model_path = self.get_cosyvoice3_2512_model_path()
+
+        if not os.path.exists(model_path):
+            return 0, 0.0
+
+        total_size = 0
+        try:
+            for dirpath, dirnames, filenames in os.walk(model_path):
+                for filename in filenames:
+                    file_path = os.path.join(dirpath, filename)
+                    if os.path.exists(file_path):
+                        total_size += os.path.getsize(file_path)
+        except Exception as e:
+            pass
+
+        return total_size, total_size / (1024 * 1024)
+
+    def is_cosyvoice_model_ready(self, model_path=None) -> bool:
+        """快速检查 CosyVoice 模型是否就绪（完整且可用）"""
+        is_complete, _, _ = self.check_cosyvoice3_model_integrity(model_path)
+        return is_complete
 
     def get_project_info(self):
         """获取项目路径信息摘要"""

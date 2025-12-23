@@ -70,372 +70,325 @@
             font-size: 0.875rem;
         }
 
-      </style>
+    </style>
 </head>
 <body>
-    <!-- 导航栏 -->
-    <nav class="neon-navbar">
-        <a href="/" class="nav-brand">
-            <span>SYNCTALK</span>
-        </a>
-        <ul class="nav-menu">
-            <li><a href="/model_training" class="nav-link">训练模型</a></li>
-            <li><a href="/video_generation" class="nav-link">视频生成</a></li>
-            <li><a href="/audio_clone" class="nav-link active">音频克隆</a></li>
-            <li><a href="/chat_system" class="nav-link">人机对话</a></li>
-        </ul>
-        <!-- 主题切换器 -->
-        <button class="theme-toggle navbar-theme-toggle" data-theme-toggle aria-label="切换主题">
+<!-- 导航栏 -->
+<nav class="neon-navbar">
+    <a href="/" class="nav-brand">
+        <span>SYNCTALK</span>
+    </a>
+    <ul class="nav-menu">
+        <li><a href="/model_training" class="nav-link">训练模型</a></li>
+        <li><a href="/video_generation" class="nav-link">视频生成</a></li>
+        <li><a href="/audio_clone" class="nav-link active">音频克隆</a></li>
+        <li><a href="/chat_system" class="nav-link">人机对话</a></li>
+    </ul>
+    <!-- 主题切换器 -->
+    <button class="theme-toggle navbar-theme-toggle" data-theme-toggle aria-label="切换主题">
             <span class="theme-icon sun">
                 <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
                     <circle cx="12" cy="12" r="5" stroke="currentColor" stroke-width="2"/>
                     <path d="M12 1v6M12 17v6M4.22 4.22l4.24 4.24M15.54 15.54l4.24 4.24M1 12h6M17 12h6M4.22 19.78l4.24-4.24M15.54 8.46l4.24-4.24" stroke-width="2" stroke-linecap="round"/>
                 </svg>
             </span>
-            <span class="theme-icon moon">
+        <span class="theme-icon moon">
                 <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
                     <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z" stroke="currentColor" stroke-width="2"/>
                 </svg>
             </span>
-            <span class="theme-tooltip">切换主题</span>
-        </button>
-    </nav>
+        <span class="theme-tooltip">切换主题</span>
+    </button>
+</nav>
 
-    <div class="page-container">
-        <div class="header-section">
-            <h1 class="page-title">音频克隆</h1>
-            <p class="page-subtitle">基于参考音频进行高质量语音克隆系统</p>
-        </div>
-
-        <div class="main-grid">
-            <!-- 音频播放区域 -->
-            <div class="preview-wrapper">
-                <!-- 原音频播放器 -->
-                <div class="preview-container" id="originalAudioPlayer">
-                    <div class="preview-placeholder">
-                        <h3>原音频播放器</h3>
-                        <p>请输入音频路径后点击加载</p>
-                    </div>
-                </div>
-
-                <!-- 生成音频播放器 -->
-                <div class="preview-container" id="clonedAudioPlayer">
-                    <div class="preview-placeholder">
-                        <h3>生成音频播放器</h3>
-                        <p>特征提取成功后，可生成新音频在此显示</p>
-                    </div>
-                </div>
-
-                <!-- 状态指示器 -->
-                <div class="status-indicators">
-                    <div class="status-card">
-                        <div class="indicator-label">克隆状态</div>
-                        <div class="indicator-value" id="cloneStatus">准备就绪</div>
-                    </div>
-                    <div class="status-card">
-                        <div class="indicator-label">预估时间</div>
-                        <div class="indicator-value" id="estimatedTime">5-15 秒</div>
-                    </div>
-                </div>
-            </div>
-
-            <!-- 控制面板 -->
-            <div class="control-panel floating-card">
-                <form id="audioCloneForm">
-                    <!-- 音频克隆设置 -->
-                    <div class="control-group">
-                        <div class="control-title">
-                            <span>音频克隆设置</span>
-                        </div>
-                        <div class="control-grid">
-                            <div>
-                                <label class="indicator-label">上传参考音频</label>
-                                <div style="display: flex; gap: var(--space-2); align-items: center;">
-                                    <input type="file" class="neon-input" id="audioFileInput"
-                                           accept=".wav,.mp3,.m4a,.flac,.ogg" style="flex: 1;">
-                                    <button type="button" class="neon-btn neon-btn-primary" id="uploadAudioBtn" disabled>
-                                        上传音频
-                                    </button>
-                                </div>
-                                <div id="uploadStatus" style="margin-top: var(--space-2); color: var(--text-secondary); font-size: 0.875rem;"></div>
-                            </div>
-
-                            <div>
-                                <label class="indicator-label">选择参考音频</label>
-                                <div style="display: flex; gap: var(--space-2); align-items: stretch;">
-                                    <select class="neon-input" name="original_audio_path" id="originalAudioPath" style="flex: 1;">
-                                        <option value="">请选择参考音频</option>
-                                    </select>
-                                    <button type="button" class="neon-btn neon-btn-sm" id="refreshRefAudioBtn" title="刷新参考音频列表">
-                                        刷新
-                                    </button>
-                                </div>
-                                <small style="color: var(--text-secondary); font-size: 0.875rem; margin-top: var(--space-1); display: block;">
-                                    选择已有的参考音频进行克隆
-                                </small>
-                            </div>
-                        </div>
-                    </div>
-
-                    <div class="action-section">
-                        <button type="button" class="neon-btn neon-btn-glow action-btn" id="loadAudioBtn">
-                            加载原音频
-                        </button>
-                    </div>
-
-                    <div class="section-divider"></div>
-
-                    <!-- 克隆操作 -->
-                    <div class="control-group">
-                        <div class="control-title">
-                            <span>克隆操作</span>
-                        </div>
-                        <div class="control-grid">
-                            <div>
-                                <label class="indicator-label">目标音频编号</label>
-                                <input type="text" class="neon-input"
-                                       placeholder="输入目标音频编号"
-                                       name="target_audio_id" id="targetAudioId">
-                            </div>
-                        </div>
-                    </div>
-
-                    <div class="action-section">
-                        <button type="button" class="neon-btn neon-btn-glow action-btn" id="cloneAudioBtn">
-                            开始克隆
-                        </button>
-
-                        <div class="progress-section" id="cloneProgressSection">
-                            <div class="progress-info">
-                                <span class="progress-status" id="cloneProgressStatus">克隆中...</span>
-                                <span id="cloneProgressPercent">0%</span>
-                            </div>
-                            <div class="neon-progress">
-                                <div class="neon-progress-bar" id="cloneProgressBar" style="width: 0%"></div>
-                            </div>
-                        </div>
-                    </div>
-
-                    <div class="section-divider"></div>
-
-                    <!-- 文本生成 -->
-                    <div class="control-group">
-                        <div class="control-title">
-                            <span>文本生成</span>
-                        </div>
-                        <div class="control-grid">
-                            <div>
-                                <label class="indicator-label">克隆音频编号</label>
-                                <div style="display: flex; gap: var(--space-2); align-items: stretch;">
-                                    <select class="neon-input" name="gen_audio_id" id="genAudioId" style="flex: 1;">
-                                        <option value="">请选择克隆音频</option>
-                                        <!-- 选项将通过JavaScript从后端加载 -->
-                                    </select>
-                                    <button type="button" class="neon-btn neon-btn-sm" id="refreshGenAudioBtn" title="刷新克隆音频列表">
-                                        刷新
-                                    </button>
-                                </div>
-                                <small style="color: var(--text-secondary); font-size: 0.875rem; margin-top: var(--space-1); display: block;">
-                                    选择已克隆的音频编号
-                                </small>
-                            </div>
-
-                            <div>
-                                <label class="indicator-label">生成文本</label>
-                                <textarea
-                                    class="text-input-area"
-                                    placeholder="输入需要生成的文本内容..."
-                                    name="generate_text" id="generateText"></textarea>
-                            </div>
-                        </div>
-                    </div>
-
-                    <div class="action-section">
-                        <button type="button" class="neon-btn neon-btn-glow action-btn" id="generateAudioBtn">
-                            生成音频
-                        </button>
-
-                        <div class="progress-section" id="generateProgressSection">
-                            <div class="progress-info">
-                                <span class="progress-status" id="generateProgressStatus">生成中...</span>
-                                <span id="generateProgressPercent">0%</span>
-                            </div>
-                            <div class="neon-progress">
-                                <div class="neon-progress-bar" id="generateProgressBar" style="width: 0%"></div>
-                            </div>
-                        </div>
-                    </div>
-                </form>
-            </div>
-        </div>
+<div class="page-container">
+    <div class="header-section">
+        <h1 class="page-title">音频克隆</h1>
+        <p class="page-subtitle">基于参考音频进行高质量语音克隆系统</p>
     </div>
 
-    <script>
-        function getCloneStatusText(progress) {
-            if (progress < 20) return '分析原音频...';
-            if (progress < 40) return '提取语音特征...';
-            if (progress < 60) return '生成克隆音频...';
-            if (progress < 80) return '音频后处理...';
-            return '完成处理...';
+    <div class="main-grid">
+        <!-- 音频播放区域 -->
+        <div class="preview-wrapper">
+            <!-- 原音频播放器 -->
+            <div class="preview-container" id="originalAudioPlayer">
+                <div class="preview-placeholder">
+                    <h3>原音频播放器</h3>
+                    <p>请输入音频路径后点击加载</p>
+                </div>
+            </div>
+
+            <!-- 生成音频播放器 -->
+            <div class="preview-container" id="clonedAudioPlayer">
+                <div class="preview-placeholder">
+                    <h3>生成音频播放器</h3>
+                    <p>特征提取成功后，可生成新音频在此显示</p>
+                </div>
+            </div>
+
+            <!-- 状态指示器 -->
+            <div class="status-indicators">
+                <div class="status-card">
+                    <div class="indicator-label">克隆状态</div>
+                    <div class="indicator-value" id="cloneStatus">准备就绪</div>
+                </div>
+                <div class="status-card">
+                    <div class="indicator-label">预估时间</div>
+                    <div class="indicator-value" id="estimatedTime">5-15 秒</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 控制面板 -->
+        <div class="control-panel floating-card">
+            <form id="audioCloneForm">
+                <!-- 音频克隆设置 -->
+                <div class="control-group">
+                    <div class="control-title">
+                        <span>音频克隆设置</span>
+                    </div>
+                    <div class="control-grid">
+                        <div>
+                            <label class="indicator-label">上传参考音频</label>
+                            <div style="display: flex; gap: var(--space-2); align-items: center;">
+                                <input type="file" class="neon-input" id="audioFileInput"
+                                       accept=".wav,.mp3,.m4a,.flac,.ogg" style="flex: 1;">
+                                <button type="button" class="neon-btn neon-btn-primary" id="uploadAudioBtn" disabled>
+                                    上传音频
+                                </button>
+                            </div>
+                            <div id="uploadStatus" style="margin-top: var(--space-2); color: var(--text-secondary); font-size: 0.875rem;"></div>
+                        </div>
+
+                        <div>
+                            <label class="indicator-label">选择参考音频</label>
+                            <div style="display: flex; gap: var(--space-2); align-items: stretch;">
+                                <select class="neon-input" name="ref_audio" id="refAudioSelect" style="flex: 1;">
+                                    <option value="">请选择参考音频</option>
+                                </select>
+                                <button type="button" class="neon-btn neon-btn-sm" id="refreshRefAudioBtn" title="刷新参考音频列表">
+                                    刷新
+                                </button>
+                            </div>
+                            <small style="color: var(--text-secondary); font-size: 0.875rem; margin-top: var(--space-1); display: block;">
+                                选择已有的参考音频进行克隆
+                            </small>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="action-section">
+                    <button type="button" class="neon-btn neon-btn-glow action-btn" id="loadAudioBtn">
+                        加载原音频
+                    </button>
+                </div>
+
+                <div class="section-divider"></div>
+
+                <!-- 语音克隆 -->
+                <div class="control-group">
+                    <div class="control-title">
+                        <span>语音克隆</span>
+                    </div>
+                    <div class="control-grid">
+                        <div>
+                            <label class="indicator-label">生成文本</label>
+                            <textarea
+                                    class="text-input-area"
+                                    placeholder="输入要生成的语音文本内容..."
+                                    id="generateText"></textarea>
+                        </div>
+
+                        <div>
+                            <label class="indicator-label">输出文件名（可选）</label>
+                            <input type="text" class="neon-input"
+                                   placeholder="留空使用默认文件名"
+                                   id="outputFilename">
+                        </div>
+                    </div>
+                </div>
+
+                <div class="generate-section">
+                    <div class="button-row">
+                        <button type="button" class="neon-btn neon-btn-glow generate-btn" id="cloneAudioBtn">
+                            开始语音克隆
+                        </button>
+                    </div>
+
+                    <div class="progress-section" id="progressSection">
+                        <div class="progress-info">
+                            <span class="progress-status" id="progressStatus">克隆中...</span>
+                            <span id="progressPercent">0%</span>
+                        </div>
+                        <div class="neon-progress">
+                            <div class="progress-bar" id="progressBar" style="width: 0%"></div>
+                        </div>
+                    </div>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<script>
+    function getCloneStatusText(progress) {
+        if (progress < 25) return '分析参考音频...';
+        if (progress < 50) return '处理文本内容...';
+        if (progress < 75) return '进行语音克隆...';
+        if (progress < 90) return '音频后处理...';
+        return '完成处理...';
+    }
+
+    // 文件选择相关变量
+    let selectedFile = null;
+
+    // 文件选择事件
+    document.getElementById('audioFileInput').addEventListener('change', function(e) {
+        const file = e.target.files[0];
+        const uploadBtn = document.getElementById('uploadAudioBtn');
+        const uploadStatus = document.getElementById('uploadStatus');
+
+        if (file) {
+            selectedFile = file;
+            uploadBtn.disabled = false;
+            uploadBtn.textContent = `上传 ${file.name}`;
+            uploadStatus.textContent = `已选择: ${file.name} (${(file.size / 1024 / 1024).toFixed(2)}MB)`;
+            uploadStatus.style.color = 'var(--neon-green)';
+        } else {
+            selectedFile = null;
+            uploadBtn.disabled = true;
+            uploadBtn.textContent = '上传音频';
+            uploadStatus.textContent = '';
+        }
+    });
+
+    // 上传音频文件
+    document.getElementById('uploadAudioBtn').addEventListener('click', async function() {
+        if (!selectedFile) {
+            alert('请先选择要上传的音频文件');
+            return;
         }
 
-        function getGenerateStatusText(progress) {
-            if (progress < 25) return '文本分析...';
-            if (progress < 50) return '语音合成...';
-            if (progress < 75) return '音频处理...';
-            return '完成处理...';
-        }
+        const btn = this;
+        const uploadStatus = document.getElementById('uploadStatus');
 
-        // 文件选择相关变量
-        let selectedFile = null;
+        btn.disabled = true;
+        btn.textContent = '上传中...';
+        uploadStatus.textContent = '正在上传音频文件...';
 
-        // 文件选择事件
-        document.getElementById('audioFileInput').addEventListener('change', function(e) {
-            const file = e.target.files[0];
-            const uploadBtn = document.getElementById('uploadAudioBtn');
-            const uploadStatus = document.getElementById('uploadStatus');
+        try {
+            const formData = new FormData();
+            formData.append('audio', selectedFile);
 
-            if (file) {
-                selectedFile = file;
-                uploadBtn.disabled = false;
-                uploadBtn.textContent = `上传 ${file.name}`;
-                uploadStatus.textContent = `已选择: ${file.name} (${(file.size / 1024 / 1024).toFixed(2)}MB)`;
+            const response = await fetch('/api/upload-reference-audio', {
+                method: 'POST',
+                body: formData
+            });
+
+            const result = await response.json();
+
+            if (result.status === 'success') {
+                uploadStatus.textContent = `上传成功: ${result.filename}`;
                 uploadStatus.style.color = 'var(--neon-green)';
-            } else {
-                selectedFile = null;
-                uploadBtn.disabled = true;
-                uploadBtn.textContent = '上传音频';
-                uploadStatus.textContent = '';
-            }
-        });
 
-        // 上传音频文件
-        document.getElementById('uploadAudioBtn').addEventListener('click', async function() {
-            if (!selectedFile) {
-                alert('请先选择要上传的音频文件');
-                return;
-            }
-
-            const btn = this;
-            const uploadStatus = document.getElementById('uploadStatus');
-
-            btn.disabled = true;
-            btn.textContent = '上传中...';
-            uploadStatus.textContent = '正在上传音频文件...';
-
-            try {
-                const formData = new FormData();
-                formData.append('audio', selectedFile);
-
-                const response = await fetch('/api/upload-reference-audio', {
-                    method: 'POST',
-                    body: formData
-                });
-
-                const result = await response.json();
-
-                if (result.status === 'success') {
-                    uploadStatus.textContent = `上传成功: ${result.filename}`;
-                    uploadStatus.style.color = 'var(--neon-green)';
-
-                    // 刷新参考音频列表
-                    await loadReferenceAudios();
-
-                    // 清空文件选择
-                    document.getElementById('audioFileInput').value = '';
-                    selectedFile = null;
-                    btn.disabled = true;
-                    btn.textContent = '上传音频';
-
-                } else {
-                    uploadStatus.textContent = `上传失败: ${result.message}`;
-                    uploadStatus.style.color = 'var(--neon-red)';
-                }
-            } catch (error) {
-                console.error('上传音频失败:', error);
-                uploadStatus.textContent = '上传失败，请检查网络连接';
-                uploadStatus.style.color = 'var(--neon-red)';
-            } finally {
-                if (btn.textContent === '上传中...') {
-                    btn.disabled = false;
-                    btn.textContent = '上传音频';
-                }
-            }
-        });
-
-        // 加载参考音频列表
-        async function loadReferenceAudios() {
-            try {
-                const response = await fetch('/api/reference-audios');
-                const data = await response.json();
-
-                if (data.status === 'success') {
-                    const select = document.getElementById('originalAudioPath');
-                    select.innerHTML = '<option value="">请选择参考音频</option>';
-
-                    data.files.forEach(file => {
-                        const option = document.createElement('option');
-                        option.value = file.relative_path;
-                        option.textContent = `${file.filename} (${file.size_mb}MB)`;
-                        option.title = `创建时间: ${file.created_time}`;
-                        select.appendChild(option);
-                    });
-
-                    console.log(`[UI] 加载了 ${data.files.length} 个参考音频`);
-                } else {
-                    console.error('加载参考音频列表失败:', data.message);
-                }
-            } catch (error) {
-                console.error('加载参考音频列表出错:', error);
-            }
-        }
-
-        // 刷新参考音频列表按钮事件
-        document.getElementById('refreshRefAudioBtn').addEventListener('click', async function() {
-            const btn = this;
-            const originalText = btn.innerHTML;
-
-            btn.disabled = true;
-            btn.innerHTML = '刷新中...';
-            btn.style.color = 'var(--neon-blue)';
-
-            try {
+                // 刷新参考音频列表
                 await loadReferenceAudios();
 
-                btn.innerHTML = '已刷新';
-                btn.style.color = 'var(--neon-green)';
+                // 清空文件选择
+                document.getElementById('audioFileInput').value = '';
+                selectedFile = null;
+                btn.disabled = true;
+                btn.textContent = '上传音频';
 
-                setTimeout(() => {
-                    btn.disabled = false;
-                    btn.innerHTML = originalText;
-                    btn.style.color = '';
-                }, 2000);
-            } catch (error) {
-                console.error('刷新参考音频列表失败:', error);
-
-                btn.innerHTML = '刷新失败';
-                btn.style.color = 'var(--neon-red)';
-
-                setTimeout(() => {
-                    btn.disabled = false;
-                    btn.innerHTML = originalText;
-                    btn.style.color = '';
-                }, 2000);
+            } else {
+                uploadStatus.textContent = `上传失败: ${result.message}`;
+                uploadStatus.style.color = 'var(--neon-red)';
             }
-        });
-
-        // 加载原音频
-        document.getElementById('loadAudioBtn').addEventListener('click', function() {
-            const audioPath = document.getElementById('originalAudioPath').value.trim();
-            const playerContainer = document.getElementById('originalAudioPlayer');
-
-            if (!audioPath) {
-                alert('请选择原音频');
-                return;
+        } catch (error) {
+            console.error('上传音频失败:', error);
+            uploadStatus.textContent = '上传失败，请检查网络连接';
+            uploadStatus.style.color = 'var(--neon-red)';
+        } finally {
+            if (btn.textContent === '上传中...') {
+                btn.disabled = false;
+                btn.textContent = '上传音频';
             }
+        }
+    });
 
-            // 创建音频播放器
-            playerContainer.innerHTML = `
+    // 加载参考音频列表
+    async function loadReferenceAudios() {
+        try {
+            const response = await fetch('/api/reference-audios');
+            const data = await response.json();
+
+            if (data.status === 'success') {
+                const select = document.getElementById('refAudioSelect');
+                select.innerHTML = '<option value="">请选择参考音频</option>';
+
+                data.files.forEach(file => {
+                    const option = document.createElement('option');
+                    option.value = file.relative_path;
+                    option.textContent = `${file.filename} (${file.size_mb}MB)`;
+                    option.title = `创建时间: ${file.created_time}`;
+                    select.appendChild(option);
+                });
+
+                console.log(`[UI] 加载了 ${data.files.length} 个参考音频`);
+            } else {
+                console.error('加载参考音频列表失败:', data.message);
+            }
+        } catch (error) {
+            console.error('加载参考音频列表出错:', error);
+        }
+    }
+
+    // 刷新参考音频列表按钮事件
+    document.getElementById('refreshRefAudioBtn').addEventListener('click', async function() {
+        const btn = this;
+        const originalText = btn.innerHTML;
+
+        btn.disabled = true;
+        btn.innerHTML = '刷新中...';
+        btn.style.color = 'var(--neon-blue)';
+
+        try {
+            await loadReferenceAudios();
+
+            btn.innerHTML = '已刷新';
+            btn.style.color = 'var(--neon-green)';
+
+            setTimeout(() => {
+                btn.disabled = false;
+                btn.innerHTML = originalText;
+                btn.style.color = '';
+            }, 2000);
+        } catch (error) {
+            console.error('刷新参考音频列表失败:', error);
+
+            btn.innerHTML = '刷新失败';
+            btn.style.color = 'var(--neon-red)';
+
+            setTimeout(() => {
+                btn.disabled = false;
+                btn.innerHTML = originalText;
+                btn.style.color = '';
+            }, 2000);
+        }
+    });
+
+    // 加载原音频
+    document.getElementById('loadAudioBtn').addEventListener('click', function() {
+        const audioPath = document.getElementById('refAudioSelect').value.trim();
+        const playerContainer = document.getElementById('originalAudioPlayer');
+
+        if (!audioPath) {
+            alert('请选择参考音频');
+            return;
+        }
+
+        // 创建音频播放器
+        playerContainer.innerHTML = `
                 <audio controls class="audio-element" id="originalAudioElement">
                     <source src="/${audioPath}" type="audio/wav">
                     <source src="/${audioPath}" type="audio/mpeg">
@@ -447,325 +400,150 @@
                 </div>
             `;
 
-            // 尝试加载音频
-            const audio = document.getElementById('originalAudioElement');
-            audio.load();
+        // 尝试加载音频
+        const audio = document.getElementById('originalAudioElement');
+        audio.load();
 
-            audio.addEventListener('error', function() {
-                playerContainer.innerHTML = `
+        audio.addEventListener('error', function() {
+            playerContainer.innerHTML = `
                     <div class="preview-placeholder">
                         <h3>音频加载失败</h3>
                         <p>请检查路径是否正确</p>
                         <small style="color: var(--text-secondary);">${audioPath}</small>
                     </div>
                 `;
-            });
-
-            audio.addEventListener('loadeddata', function() {
-                const cloneStatus = document.getElementById('cloneStatus');
-                cloneStatus.textContent = '音频已加载';
-                cloneStatus.style.color = 'var(--neon-green)';
-            });
         });
 
-        // 克隆音频
-        document.getElementById('cloneAudioBtn').addEventListener('click', async function() {
-            const originalPath = document.getElementById('originalAudioPath').value.trim();
-            const targetAudioId = document.getElementById('targetAudioId').value.trim();
+        audio.addEventListener('loadeddata', function() {
+            const cloneStatus = document.getElementById('cloneStatus');
+            cloneStatus.textContent = '音频已加载';
+            cloneStatus.style.color = 'var(--neon-green)';
+        });
+    });
 
-            if (!originalPath || !targetAudioId) {
-                alert('请填写原音频路径和目标音频编号');
-                return;
+    // 语音克隆
+    document.getElementById('cloneAudioBtn').addEventListener('click', async function() {
+        const refAudioPath = document.getElementById('refAudioSelect').value.trim();
+        const generateText = document.getElementById('generateText').value.trim();
+        const outputFilename = document.getElementById('outputFilename').value.trim();
+
+        if (!refAudioPath) {
+            alert('请选择参考音频');
+            return;
+        }
+
+        if (!generateText) {
+            alert('请输入要生成的语音文本');
+            return;
+        }
+
+        const btn = this;
+        const progressSection = document.getElementById('progressSection');
+        const progressBar = document.getElementById('progressBar');
+        const progressPercent = document.getElementById('progressPercent');
+        const progressStatus = document.getElementById('progressStatus');
+        const cloneStatus = document.getElementById('cloneStatus');
+
+        progressSection.style.display = 'block';
+        btn.disabled = true;
+        btn.innerHTML = '克隆中...';
+        cloneStatus.textContent = '克隆中...';
+
+        // 模拟进度
+        let progress = 0;
+        const progressInterval = setInterval(() => {
+            progress += Math.random() * 15;
+            if (progress > 90) progress = 90;
+            progressBar.style.width = `${progress}%`;
+            progressPercent.textContent = `${Math.round(progress)}%`;
+            progressStatus.textContent = getCloneStatusText(progress);
+            cloneStatus.textContent = getCloneStatusText(progress);
+        }, 500);
+
+        try {
+            // 调用语音克隆接口
+            const formData = new FormData();
+            formData.append('ref_audio_path', refAudioPath);
+            formData.append('generate_text', generateText);
+
+            if (outputFilename) {
+                formData.append('output_filename', outputFilename);
             }
 
-            const btn = this;
-            const progressSection = document.getElementById('cloneProgressSection');
-            const progressBar = document.getElementById('cloneProgressBar');
-            const progressPercent = document.getElementById('cloneProgressPercent');
-            const progressStatus = document.getElementById('cloneProgressStatus');
-            const cloneStatus = document.getElementById('cloneStatus');
+            console.log('[语音克隆] 发送克隆请求:', {
+                ref_audio_path: refAudioPath,
+                generate_text: generateText,
+                output_filename: outputFilename
+            });
 
-            progressSection.style.display = 'block';
-            btn.disabled = true;
-            btn.innerHTML = '克隆中...';
-            cloneStatus.textContent = '克隆中...';
+            const response = await fetch('/audio_clone', {
+                method: 'POST',
+                body: formData
+            });
 
-            // 模拟进度
-            let progress = 0;
-            const progressInterval = setInterval(() => {
-                progress += Math.random() * 15;
-                if (progress > 90) progress = 90;
-                progressBar.style.width = `${progress}%`;
-                progressPercent.textContent = `${Math.round(progress)}%`;
-                progressStatus.textContent = getCloneStatusText(progress);
-                cloneStatus.textContent = getCloneStatusText(progress);
-            }, 500);
+            const result = await response.json();
+            console.log('[语音克隆] 服务器响应:', result);
 
-            try {
-                // 调用实际的克隆接口
-                const formData = new FormData();
-                formData.append('original_audio_path', originalPath);
-                formData.append('audio_id', targetAudioId); // 使用目标音频ID作为音频ID
-                formData.append('target_audio_id', targetAudioId);
-                formData.append('gen_audio_id', ''); // 克隆阶段不生成文本
-                formData.append('generate_text', ''); // 克隆阶段不生成文本
+            clearInterval(progressInterval);
+            progressBar.style.width = '100%';
+            progressPercent.textContent = '100%';
 
-                console.log('[音频克隆] 发送克隆请求:', {
-                    original_audio_path: originalPath,
-                    audio_id: targetAudioId,
-                    target_audio_id: targetAudioId
-                });
+            if (result.status === 'success') {
+                progressStatus.textContent = '语音克隆完成';
+                cloneStatus.textContent = '语音克隆完成';
+                cloneStatus.style.color = 'var(--neon-green)';
 
-                const response = await fetch('/audio_clone', {
-                    method: 'POST',
-                    body: formData
-                });
-
-                const result = await response.json();
-                console.log('[音频克隆] 服务器响应:', result);
-
-                clearInterval(progressInterval);
-                progressBar.style.width = '100%';
-                progressPercent.textContent = '100%';
-
-                if (result.status === 'success') {
-                    progressStatus.textContent = '特征提取完成';
-                    cloneStatus.textContent = '特征提取完成';
-                    cloneStatus.style.color = 'var(--neon-green)';
-
-                    // 显示特征提取成功信息（不显示音频播放器，因为这只是特征提取）
+                // 显示生成的音频
+                if (result.cloned_audio_path) {
                     const clonedContainer = document.getElementById('clonedAudioPlayer');
+                    const audioPath = result.cloned_audio_path;
 
                     clonedContainer.innerHTML = `
-                        <div style="text-align: center; padding: var(--space-4); background: var(--surface-secondary); border-radius: var(--radius-lg); border: 1px solid var(--neon-green);">
-                            <div style="font-size: 2rem; color: var(--neon-green); margin-bottom: var(--space-2);">✅</div>
-                            <div style="color: var(--text-primary); font-weight: 600; margin-bottom: var(--space-2);">特征提取成功!</div>
-                            <div style="color: var(--text-secondary); font-size: 0.875rem;">
-                                <div> 说话人ID: <strong>${targetAudioId}</strong></div>
-                                <div> 提取时间: <strong>${new Date().toLocaleString()}</strong></div>
-                                <div> 现在可以使用此说话人特征生成新的音频</div>
-                            </div>
-                        </div>
-                    `;
-
-                    // 刷新音频列表，使新克隆的音频出现在选择框中
-                    setTimeout(() => {
-                        refreshAudioData();
-                    }, 1000);
-
-                } else {
-                    progressStatus.textContent = '克隆失败';
-                    cloneStatus.textContent = '克隆失败';
-                    cloneStatus.style.color = 'var(--neon-red)';
-                    alert(`克隆失败: ${result.message || '未知错误'}`);
-                }
-
-            } catch (error) {
-                console.error('[音频克隆] 请求失败:', error);
-                clearInterval(progressInterval);
-                progressStatus.textContent = '克隆失败';
-                cloneStatus.textContent = '克隆失败';
-                cloneStatus.style.color = 'var(--neon-red)';
-                alert('克隆请求失败，请查看控制台');
-            } finally {
-                btn.disabled = false;
-                btn.innerHTML = '开始克隆';
-                setTimeout(() => { progressSection.style.display = 'none'; }, 2000);
-            }
-        });
-
-        // 初始化音频选择框
-        async function initializeAudioSelects() {
-            try {
-                // 初始化生成音频选择框 - 强制刷新以获取最新数据
-                const genAudioSelect = document.getElementById('genAudioId');
-                if (genAudioSelect) {
-                    await window.AudioUtils.fillAudioSelect('#genAudioId', '请选择克隆音频', '', true);
-                }
-            } catch (error) {
-                console.error('初始化音频选择框失败:', error);
-            }
-        }
-
-        // 刷新克隆音频列表按钮事件
-        document.getElementById('refreshGenAudioBtn').addEventListener('click', async function() {
-            const btn = this;
-            const originalText = btn.innerHTML;
-
-            btn.disabled = true;
-            btn.innerHTML = '刷新中...';
-            btn.style.color = 'var(--neon-blue)';
-
-            try {
-                await loadClonedAudios();
-
-                btn.innerHTML = '已刷新';
-                btn.style.color = 'var(--neon-green)';
-
-                setTimeout(() => {
-                    btn.disabled = false;
-                    btn.innerHTML = originalText;
-                    btn.style.color = '';
-                }, 2000);
-            } catch (error) {
-                console.error('刷新克隆音频列表失败:', error);
-
-                btn.innerHTML = '刷新失败';
-                btn.style.color = 'var(--neon-red)';
-
-                setTimeout(() => {
-                    btn.disabled = false;
-                    btn.innerHTML = originalText;
-                    btn.style.color = '';
-                }, 2000);
-            }
-        });
-
-        // 加载克隆音频列表
-        async function loadClonedAudios() {
-            try {
-                const response = await fetch('/api/cloned-audios');
-                const data = await response.json();
-
-                if (data.status === 'success') {
-                    const select = document.getElementById('genAudioId');
-                    select.innerHTML = '<option value="">请选择克隆音频</option>';
-
-                    data.audios.forEach(audio => {
-                        const option = document.createElement('option');
-                        option.value = audio.id;
-                        option.textContent = `${audio.id} - ${audio.name} (${audio.created_at})`;
-                        option.title = `状态: ${audio.status}\n创建时间: ${audio.created_at}\n参考音频: ${audio.reference_audio}`;
-                        select.appendChild(option);
-                    });
-
-                    console.log(`[UI] 加载了 ${data.audios.length} 个克隆音频`);
-                } else {
-                    console.error('加载克隆音频列表失败:', data.message);
-                }
-            } catch (error) {
-                console.error('加载克隆音频列表出错:', error);
-            }
-        }
-
-        // 刷新音频数据（简化版，不再需要按钮反馈）
-        async function refreshAudioData() {
-            try {
-                console.log('正在刷新音频数据...');
-                await window.AudioUtils.refreshAllAudioSelects();
-                console.log('音频数据刷新完成');
-            } catch (error) {
-                console.error('刷新音频数据失败:', error);
-            }
-        }
-
-        // 生成音频
-        document.getElementById('generateAudioBtn').addEventListener('click', async function() {
-            const genAudioId = document.getElementById('genAudioId').value.trim();
-            const generateText = document.getElementById('generateText').value.trim();
-
-            if (!genAudioId || !generateText) {
-                alert('请填写音频编号和生成文本');
-                return;
-            }
-
-            const btn = this;
-            const progressSection = document.getElementById('generateProgressSection');
-            const progressBar = document.getElementById('generateProgressBar');
-            const progressPercent = document.getElementById('generateProgressPercent');
-            const progressStatus = document.getElementById('generateProgressStatus');
-
-            progressSection.style.display = 'block';
-            btn.disabled = true;
-            btn.innerHTML = '生成中...';
-
-            // 模拟进度
-            let progress = 0;
-            const progressInterval = setInterval(() => {
-                progress += Math.random() * 15;
-                if (progress > 90) progress = 90;
-                progressBar.style.width = `${progress}%`;
-                progressPercent.textContent = `${Math.round(progress)}%`;
-                progressStatus.textContent = getGenerateStatusText(progress);
-            }, 500);
-
-            try {
-                // 调用实际的生成接口
-                const formData = new FormData();
-                formData.append('original_audio_path', ''); // 生成阶段不需要原音频
-                formData.append('audio_id', genAudioId);
-                formData.append('target_audio_id', genAudioId);
-                formData.append('gen_audio_id', genAudioId);
-                formData.append('generate_text', generateText);
-
-                console.log('[音频生成] 发送生成请求:', {
-                    audio_id: genAudioId,
-                    generate_text: generateText
-                });
-
-                const response = await fetch('/audio_clone', {
-                    method: 'POST',
-                    body: formData
-                });
-
-                const result = await response.json();
-                console.log('[音频生成] 服务器响应:', result);
-
-                clearInterval(progressInterval);
-                progressBar.style.width = '100%';
-                progressPercent.textContent = '100%';
-
-                if (result.status === 'success') {
-                    progressStatus.textContent = '生成完成';
-
-                    if (result.cloned_audio_path) {
-                        // 显示生成的音频
-                        const generatedContainer = document.getElementById('clonedAudioPlayer');
-                        const audioPath = result.cloned_audio_path;
-
-                        generatedContainer.innerHTML = `
                             <audio controls class="audio-element" autoplay>
                                 <source src="/${audioPath}" type="audio/wav">
                                 <source src="/${audioPath.replace('.wav', '.mp3')}" type="audio/mpeg">
                                 您的浏览器不支持音频播放
                             </audio>
                             <div style="text-align: center; margin-top: var(--space-2); color: var(--neon-green);">
-                                <small> 生成完成 - 音频: ${genAudioId}</small>
+                                <small> 语音克隆完成</small>
                                 <br><small> 文件路径: ${audioPath}</small>
                                 <br><small> 文本内容: "${generateText}"</small>
                             </div>
                         `;
-
-                        // 清空文本输入框
-                        document.getElementById('generateText').value = '';
-                    }
-
-                    alert(`音频生成完成！\n音频编号: ${genAudioId}\n文本内容: ${generateText}`);
-
-                } else {
-                    progressStatus.textContent = '生成失败';
-                    alert(`生成失败: ${result.message || '未知错误'}`);
                 }
 
-            } catch (error) {
-                console.error('[音频生成] 请求失败:', error);
-                clearInterval(progressInterval);
-                progressStatus.textContent = '生成失败';
-                alert('音频生成请求失败，请查看控制台');
-            } finally {
-                btn.disabled = false;
-                btn.innerHTML = '生成音频';
-                setTimeout(() => { progressSection.style.display = 'none'; }, 2000);
-            }
-        });
+                // 清空文本输入框
+                document.getElementById('generateText').value = '';
+                document.getElementById('outputFilename').value = '';
 
-        // 页面加载时初始化
-        document.addEventListener('DOMContentLoaded', function() {
-            initializeAudioSelects();
-            // 同时加载参考音频列表和克隆音频列表
-            loadReferenceAudios();
-            loadClonedAudios();
-        });
-    </script>
+                alert(`语音克隆完成！\n文本内容: ${generateText}\n${result.generation_time ? `生成时间: ${result.generation_time.toFixed(2)}秒` : ''}`);
+
+            } else {
+                progressStatus.textContent = '克隆失败';
+                cloneStatus.textContent = '克隆失败';
+                cloneStatus.style.color = 'var(--neon-red)';
+                alert(`克隆失败: ${result.message || '未知错误'}`);
+            }
+
+        } catch (error) {
+            console.error('[语音克隆] 请求失败:', error);
+            clearInterval(progressInterval);
+            progressStatus.textContent = '克隆失败';
+            cloneStatus.textContent = '克隆失败';
+            cloneStatus.style.color = 'var(--neon-red)';
+            alert('克隆请求失败，请查看控制台');
+        } finally {
+            btn.disabled = false;
+            btn.innerHTML = '开始语音克隆';
+            setTimeout(() => { progressSection.style.display = 'none'; }, 2000);
+        }
+    });
+
+      // 页面加载时初始化
+    document.addEventListener('DOMContentLoaded', function() {
+        // 加载参考音频列表
+        loadReferenceAudios();
+    });
+</script>
 </body>
 </html>

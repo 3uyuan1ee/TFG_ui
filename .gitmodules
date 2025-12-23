@@ -1,0 +1,3 @@
+[submodule "EchOfU/CosyVoice"]
+	path = EchOfU/CosyVoice
+	url = https://github.com/FunAudioLLM/CosyVoice.git

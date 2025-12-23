@@ -1,787 +1,500 @@
+"""
+CosyVoice语音生成服务模块
+提供简单、高质量的语音克隆服务
+
+主要功能:
+- 基于CosyVoice3的零样本语音克隆
+- 多语言支持（中文、英文、日文、韩文等）
+- 高性能VLLM加速
+- 基础的音频处理和验证
+
+设计原则:
+- 简单易用
+- 高质量
+- 稳定可靠
+
+"""
+
 import os
+import sys
 import time
-import json
-import subprocess
-import torch
-import threading
+import uuid
+import logging
 from datetime import datetime
+from pathlib import Path
+from typing import Dict, Optional, Any
+from dataclasses import dataclass
+from enum import Enum
 
-from nltk.lm import Vocabulary
-from openvoice.api import BaseSpeakerTTS, ToneColorConverter
-from openvoice import se_extractor
-from .path_manager import PathManager
-
-
-class ModelDownloader:
-    """模型下载器，处理模型文件的下载和解压"""
-
-    @staticmethod
-    def download_with_progress(url, output_path):
-        """文件下载进度显示"""
-        import requests
-
-        try:
-            response = requests.get(url, stream=True)
-            response.raise_for_status()
-
-            total_size = int(response.headers.get('content-length', 0))
-            downloaded = 0
-
-            with open(output_path, 'wb') as f:
-                for chunk in response.iter_content(chunk_size=8192):
-                    f.write(chunk)
-                    downloaded += len(chunk)
-
-                    if total_size > 0:
-                        progress = (downloaded / total_size) * 100
-                        print(f"\r[OpenVoice] 下载进度: {progress:.1f}%", end='', flush=True)
-
-            print()  # 换行
-
-        except Exception as e:
-            print(f"[OpenVoice] 下载失败: {e}")
-            raise
-
-    @staticmethod
-    def extract_zip_file(zip_path, extract_dir):
-        """解压zip文件"""
-        import zipfile
-
-        try:
-            with zipfile.ZipFile(zip_path, 'r') as zip_ref:
-                zip_ref.extractall(extract_dir)
-
-            print(f"[OpenVoice] 解压完成: {zip_path} -> {extract_dir}")
-
-        except Exception as e:
-            print(f"[OpenVoice] 解压失败: {e}")
-            raise
-
-
-class AudioProcessor:
-    """音频处理器，处理音频相关的操作"""
-
-    def __init__(self):
-        self.path_manager = PathManager()
-
-    def extract_audio_from_video(self, video_path):
-        """从视频中提取音频"""
-        try:
-            # 确保输出目录存在 - 使用PathManager
-            audio_dir = self.path_manager.get_ref_voice_path()
-            self.path_manager.ensure_directory(audio_dir)
-
-            # 生成音频文件名 - 使用PathManager
-            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-            audio_output = self.path_manager.get_extracted_voice_path(timestamp)
-
-            # 使用ffmpeg提取音频
-            cmd = [
-                "ffmpeg", "-i", video_path,
-                "-vn",  # 禁用视频
-                "-acodec", "pcm_s24le",  # 音频编码
-                "-ar", "22050",  # 采样率
-                "-af", "highpass=80,lowpass=8000,dynaudnorm=p=0.95:s=5",  # 单声道
-                "-y",  # 覆盖输出文件
-                audio_output
-            ]
-
-            print(f"[backend.model_trainer] 提取音频命令: {' '.join(cmd)}")
-
-            result = subprocess.run(
-                cmd,
-                capture_output=True,
-                text=True,
-                timeout=60  # 1分钟超时
-            )
-
-            if result.returncode == 0:
-                print(f"[backend.model_trainer] 音频提取成功: {audio_output}")
-                return audio_output
-            else:
-                print(f"[backend.model_trainer] 音频提取失败: {result.stderr}")
-                return None
-
-        except subprocess.TimeoutExpired:
-            print("[backend.model_trainer] 音频提取超时")
-            return None
-        except Exception as e:
-            print(f"[backend.model_trainer] 音频提取异常: {e}")
-            return None
-
-
-class SpeakerFeatureManager:
-    """说话人特征管理器 - 专门处理说话人特征的加载、保存和管理"""
-
-    def __init__(self, path_manager):
-        self.path_manager = path_manager
-        self.speaker_features = {}
-        self._load_all_features()
-
-    def _load_all_features(self):
-        """加载所有已保存的说话人特征"""
-        features_file = self.path_manager.get_speaker_features_path()
-        if os.path.exists(features_file):
-            try:
-                with open(features_file, 'r', encoding='utf-8') as f:
-                    data = json.load(f)
-
-                # 加载特征张量
-                for speaker_id, info in data.items():
-                    feature_path = info['feature_path']
-                    if os.path.exists(feature_path):
-                        self.speaker_features[speaker_id] = {
-                            'se': torch.load(feature_path, map_location='cpu'),
-                            'reference_audio': info['reference_audio'],
-                            'created_time': info['created_time']
-                        }
-
-                print(f"[SpeakerFeatureManager] 已加载 {len(self.speaker_features)} 个说话人特征")
-            except Exception as e:
-                print(f"[SpeakerFeatureManager] 加载说话人特征失败: {e}")
-
-    def save_feature(self, speaker_id, reference_audio, se_tensor):
-        """保存说话人特征"""
-        try:
-            # 保存特征张量 - 使用PathManager的专门方法
-            feature_path = self.path_manager.get_speaker_feature_tensor_path(speaker_id)
-            torch.save(se_tensor, feature_path)
-
-            # 保存元数据
-            metadata = {
-                'feature_path': feature_path,
-                'reference_audio': reference_audio,
-                'created_time': time.strftime("%Y-%m-%d %H:%M:%S")
-            }
-
-            # 更新特征文件
-            features_file = self.path_manager.get_speaker_features_path()
-            all_features = {}
-            if os.path.exists(features_file):
-                with open(features_file, 'r', encoding='utf-8') as f:
-                    all_features = json.load(f)
-
-            all_features[speaker_id] = metadata
-
-            with open(features_file, 'w', encoding='utf-8') as f:
-                json.dump(all_features, f, indent=2, ensure_ascii=False)
-
-            # 更新内存中的特征
-            self.speaker_features[speaker_id] = {
-                'se': se_tensor,
-                'reference_audio': reference_audio,
-                'created_time': metadata['created_time']
-            }
-
-            print(f"[SpeakerFeatureManager] 说话人特征已保存: {speaker_id}")
-
-        except Exception as e:
-            print(f"[SpeakerFeatureManager] 保存说话人特征失败: {e}")
-
-    def get_feature(self, speaker_id):
-        """获取指定说话人的特征"""
-        return self.speaker_features.get(speaker_id)
-
-    def list_speakers(self):
-        """列出所有可用的说话人"""
-        return list(self.speaker_features.keys())
-
-    def extract_feature(self, speaker_id, reference_audio, tone_converter):
-        """提取说话人特征"""
-        try:
-            if not tone_converter:
-                print(f"[SpeakerFeatureManager] 转换器未初始化")
-                return False
-
-            print(f"[SpeakerFeatureManager] 开始提取说话人特征: {speaker_id}")
-
-            # 提取说话人特征 - 使用PathManager获取processed目录
-            processed_dir = self.path_manager.get_processed_path()
-            target_se_result = se_extractor.get_se(
-                reference_audio,
-                vc_model=tone_converter,
-                target_dir=processed_dir,
-                vad=True
-            )
-
-            # get_se返回元组(se_tensor, audio_name) 只需要张量部分
-            if isinstance(target_se_result, tuple):
-                target_se = target_se_result[0]
-            else:
-                target_se = target_se_result
-
-            # 保存特征
-            self.save_feature(speaker_id, reference_audio, target_se)
-
-            print(f"[SpeakerFeatureManager] 说话人特征提取完成: {speaker_id}")
-            return True
-
-        except Exception as e:
-            print(f"[SpeakerFeatureManager] 说话人特征提取失败: {e}")
-            return False
-
-
-class ModelManager:
-    """模型管理器 - 专门处理模型的初始化、下载和管理"""
-
-    def __init__(self, path_manager):
-        self.path_manager = path_manager
-        self.device = DeviceUtils._get_optimal_device()
-        self.tone_converter = None
-
-    def initialize(self):
-        """初始化模型"""
-        try:
-            # 确保目录存在
-            self._ensure_directories()
-
-            # 检查模型是否存在
-            if not self._check_models_exist():
-                print("[ModelManager] 检测到模型文件缺失，开始自动下载...")
-                self._download_models()
-
-            # 配置模型路径 - 使用PathManager
-            config_path = self.path_manager.get_openvoice_v2_path("converter/config.json")
-            base_ckpt = self.path_manager.get_openvoice_v2_path("converter/checkpoint.pth")
-
-            # 加载音色转换器（禁用水印以避免下载模型）
-            self.tone_converter = ToneColorConverter(config_path, device=self.device)
-            self.tone_converter.load_ckpt(base_ckpt)
-
-            print(f"[ModelManager] V2模型加载完成，使用设备: {self.device}")
-            return True
-
-        except Exception as e:
-            print(f"[ModelManager] 模型初始化失败: {e}")
-            return False
-
-
-
-    def _ensure_directories(self):
-        """确保必要目录存在"""
-        dirs = [
-            self.path_manager.get_openvoice_v2_path(),
-            self.path_manager.get_root_begin_path("OpenVoice/checkpoints/base_speakers"),
-            self.path_manager.get_openvoice_model_path(),
-            self.path_manager.get_ref_voice_path(),                    # 参考音频目录
-            self.path_manager.get_res_voice_path(),                    # 结果音频目录
-            self.path_manager.get_processed_path()
-        ]
-        for dir_path in dirs:
-            self.path_manager.ensure_directory(dir_path)
-            print(f"[ModelManager] 确保目录存在: {dir_path}")
-
-    def _check_models_exist(self):
-        """检查模型文件是否存在"""
-        required_files = [
-            self.path_manager.get_openvoice_v2_path("converter/config.json"),
-            self.path_manager.get_openvoice_v2_path("converter/checkpoint.pth")
-        ]
-
-        missing = [f for f in required_files if not os.path.exists(f)]
-        if missing:
-            print(f"[ModelManager] 缺失模型文件: {missing}")
-            return False
-        return True
-
-    def _download_models(self):
-        """下载OpenVoice V2预训练模型"""
-        print("[ModelManager] 下载OpenVoice V2预训练模型...")
-
-        try:
-            # V2模型下载地址
-            zip_url = "https://myshell-public-repo-host.s3.amazonaws.com/openvoice/checkpoints_v2_0417.zip"
-
-            # 使用PathManager获取路径
-            project_root = self.path_manager.project_root
-            zip_path = os.path.join(project_root, "OpenVoice/checkpoints_v2_0417.zip")
-            extract_dir = os.path.join(project_root, "OpenVoice/")
-
-            print(f"[ModelManager] 下载V2检查点压缩包...")
-            ModelDownloader.download_with_progress(zip_url, zip_path)
-
-            # 解压压缩包
-            print(f"[ModelManager] 解压检查点文件...")
-            ModelDownloader.extract_zip_file(zip_path, extract_dir)
-
-            # 清理压缩包文件
-            if os.path.exists(zip_path):
-                os.remove(zip_path)
-                print(f"[ModelManager] 清理压缩包文件: {zip_path}")
-
-            print("[ModelManager] V2模型下载和解压完成")
-
-        except Exception as e:
-            print(f"[ModelManager] 模型下载失败: {e}")
-            raise
-
-
-class VoiceGenerator:
-    """语音生成器 - 专门处理语音合成功能"""
-
-    def __init__(self, path_manager):
-        self.path_manager = path_manager
-        self._melotts_models = {}  # 缓存MeloTTS模型实例
-
-    def _get_or_create_melotts_model(self, language, device='cpu'):
-        """获取或创建MeloTTS模型实例（带缓存）"""
-        cache_key = f"{language}_{device}"
-        if cache_key not in self._melotts_models:
-            print(f"[VoiceGenerator] 初始化MeloTTS模型 (语言: {language}, 设备: {device})...")
-            from melo.api import TTS
-            self._melotts_models[cache_key] = TTS(language=language, device=device)
-            print(f"[VoiceGenerator] MeloTTS模型初始化成功并缓存")
-        return self._melotts_models[cache_key]
-
-
-    def generate_with_melotts_tts(self, text, output_path, base_speaker_key="ZH" ,speed = 0.9):
-        """尝试使用MeloTTS生成语音"""
-        # 保存原始环境变量
-        import os
-        original_mps_fallback = os.environ.get('PYTORCH_ENABLE_MPS_FALLBACK')
-        original_cuda_devices = os.environ.get('CUDA_VISIBLE_DEVICES')
-
-        try:
-            print(f"[VoiceGenerator] 开始使用MeloTTS生成语音...")
-            print(f"[VoiceGenerator] 输入文本: {text}")
-            print(f"[VoiceGenerator] 输出路径: {output_path}")
-            print(f"[VoiceGenerator] 说话人key: {base_speaker_key}")
-
-            # # 临时设置环境变量，强制使用CPU，避免MPS问题
-            # print(f"[VoiceGenerator] 设置环境变量强制使用CPU...")
-            # os.environ['PYTORCH_ENABLE_MPS_FALLBACK'] = '0'
-            # os.environ['CUDA_VISIBLE_DEVICES'] = ''
-            # print(f"[VoiceGenerator] PYTORCH_ENABLE_MPS_FALLBACK: {os.environ.get('PYTORCH_ENABLE_MPS_FALLBACK')}")
-            # print(f"[VoiceGenerator] CUDA_VISIBLE_DEVICES: {os.environ.get('CUDA_VISIBLE_DEVICES')}")
-
-            device=DeviceUtils._get_optimal_device()
-
-            print(f"[VoiceGenerator] 选择的设备: {device}")
-
-            print(f"[VoiceGenerator] 正在导入MeloTTS...")
-            from melo.api import TTS
-            print(f"[VoiceGenerator] MeloTTS导入成功")
-
-            # 根据base_speaker_key确定语言
-            language_mapping = {
-                "EN_NEWEST": "EN", "EN": "EN",
-                "ES": "ES", "FR": "FR",
-                "ZH": "ZH", "JP": "JP", "KR": "KR"
-            }
-
-            language = language_mapping.get(base_speaker_key, "ZH")
-            print(f"[VoiceGenerator] 映射后语言: {language}")
-
-            # 使用缓存的模型
-            model = self._get_or_create_melotts_model(language, device=device)
-
-            speaker_ids = model.hps.data.spk2id
-            print(f"[VoiceGenerator] 可用说话人: {dict(speaker_ids)}")
-
-            # 选择说话人ID
-            if base_speaker_key in speaker_ids:
-                speaker_id = speaker_ids[base_speaker_key]
-                print(f"[VoiceGenerator] 使用指定说话人: {base_speaker_key} -> {speaker_id}")
-            else:
-                speaker_id = list(speaker_ids.values())[0]
-                print(f"[VoiceGenerator] 未找到说话人 {base_speaker_key}，使用默认说话人: {speaker_id}")
-
-            # 生成语音
-            print(f"[VoiceGenerator] 开始生成语音 (语速: {speed})...")
-            print(f"[VoiceGenerator] 模型参数: 语言={language}, 说话人ID={speaker_id}, 输出路径={output_path}")
-
-            model.tts_to_file(
-                text,
-                speaker_id,
-                output_path,
-                speed=speed,
-                sdp_ratio=0.2,        # 韵律相似度
-                noise_scale=0.6,      # 音频变化度
-                noise_scale_w=0.8,    # 音频质量
-                format='WAV'          # 明确格式
-
-            )
-
-            # 检查文件是否成功生成
-            if os.path.exists(output_path):
-                file_size = os.path.getsize(output_path)
-                print(f"[VoiceGenerator] MeloTTS生成语音成功: {output_path}")
-                print(f"[VoiceGenerator] 生成文件大小: {file_size} bytes")
-                return True
-            else:
-                print(f"[VoiceGenerator] MeloTTS生成失败: 输出文件不存在 {output_path}")
-                return False
-
-        except ImportError as ie:
-            print(f"[VoiceGenerator] MeloTTS导入错误: {ie}")
-            print("[VoiceGenerator] MeloTTS未安装")
-            return False
-        except Exception as e:
-            print(f"[VoiceGenerator] MeloTTS生成失败 - 详细错误: {type(e).__name__}: {e}")
-            print(f"[VoiceGenerator] 错误详情: {str(e)}")
-            import traceback
-            print(f"[VoiceGenerator] 错误堆栈:")
-            traceback.print_exc()
-            return False
-        finally:
-            # 恢复原始环境变量
-            if original_mps_fallback is not None:
-                os.environ['PYTORCH_ENABLE_MPS_FALLBACK'] = original_mps_fallback
-            else:
-                os.environ.pop('PYTORCH_ENABLE_MPS_FALLBACK', None)
-
-            if original_cuda_devices is not None:
-                os.environ['CUDA_VISIBLE_DEVICES'] = original_cuda_devices
-            else:
-                os.environ.pop('CUDA_VISIBLE_DEVICES', None)
-
-            print(f"[VoiceGenerator] 已恢复原始环境变量设置")
-
-
-class OpenVoiceService:
+# 添加项目根目录到Python路径
+PROJECT_ROOT = Path(__file__).parent.parent
+sys.path.append(str(PROJECT_ROOT))
+
+# 导入CosyVoice核心模块
+from .CV_clone import (
+    VoiceCloneResult, AudioMetadata,
+    get_cosy_service
+)
+
+
+# ==================== 枚举类定义 ====================
+
+class Language(Enum):
+    """支持的语言"""
+    CHINESE = "zh"
+    ENGLISH = "en"
+    JAPANESE = "ja"
+    KOREAN = "ko"
+    AUTO = "auto"          # 自动检测
+
+
+# ==================== 数据类定义 ====================
+
+@dataclass
+class VoiceGenerationResult:
+    """语音生成结果"""
+    task_id: str
+    success: bool
+    audio_path: Optional[str] = None
+    audio_metadata: Optional[AudioMetadata] = None
+    generation_time: float = 0.0
+    error_message: Optional[str] = None
+    created_time: datetime = None
+
+    def __post_init__(self):
+        if self.created_time is None:
+            self.created_time = datetime.now()
+        if self.task_id == "":
+            self.task_id = str(uuid.uuid4())
+
+    @property
+    def is_success(self) -> bool:
+        return self.success and self.audio_path is not None
+
+    @property
+    def is_failed(self) -> bool:
+        return not self.success
+
+
+@dataclass
+class ServiceConfig:
+    """服务配置"""
+    enable_vllm: bool = False
+    log_level: str = "INFO"
+
+
+# ==================== 异常类定义 ====================
+
+class VoiceGeneratorError(Exception):
+    """语音生成器基础异常"""
+    pass
+
+
+class ServiceNotInitialized(VoiceGeneratorError):
+    """服务未初始化异常"""
+    pass
+
+
+# ==================== 主服务类 ====================
+
+class CosyVoiceService:
     """
-    OpenVoice服务主类 - 协调各个组件
-    线程安全的懒汉式单例模式
+    CosyVoice语音生成服务（简化版）
+
+    提供简单直接的语音克隆功能：
+    - 零样本语音克隆
+    - VLLM加速
+    - 多语言支持
+
+    使用示例:
+        # 创建服务实例
+        service = CosyVoiceService(enable_vllm=True)
+
+        # 语音克隆
+        result = service.clone_voice(
+            text="你好，这是测试。",
+            reference_audio="path/to/reference.wav"
+        )
+
+        if result.is_success:
+            print(f"克隆成功: {result.audio_path}")
     """
 
     _instance = None
-    _lock = threading.Lock()
-    _initialized = False
+    _lock = None
 
-    def __new__(cls):
+    def __new__(cls, config: ServiceConfig = None):
+        """单例模式"""
         if cls._instance is None:
-            cls._instance = super(OpenVoiceService, cls).__new__(cls)
-        return cls._instance
+            if cls._lock is None:
+                import threading
+                cls._lock = threading.Lock()
 
-    def __init__(self):
-        if not OpenVoiceService._initialized:
-            self._initialize_service()
-            OpenVoiceService._initialized = True
-
-    def _initialize_service(self):
-        """实际的服务初始化逻辑"""
-        print("[OpenVoice] ===============================================")
-        print("[OpenVoice] 初始化OpenVoice服务...")
-        print("[OpenVoice] ===============================================")
-
-        # 初始化组件
-        print("[OpenVoice] 初始化PathManager...")
-        self.path_manager = PathManager()
-        print(f"[OpenVoice] PathManager初始化完成，项目根目录: {self.path_manager.project_root}")
-
-        print("[OpenVoice] 初始化ModelManager...")
-        self.model_manager = ModelManager(self.path_manager)
-
-        print("[OpenVoice] 初始化SpeakerFeatureManager...")
-        self.feature_manager = SpeakerFeatureManager(self.path_manager)
-
-        print("[OpenVoice] 初始化VoiceGenerator...")
-        self.voice_generator = VoiceGenerator(self.path_manager)
-
-        print("[OpenVoice] 初始化AudioProcessor...")
-        self.audio_processor = AudioProcessor()
-
-        # 初始化模型
-        print("[OpenVoice] 开始初始化模型组件...")
-        # 确保tts_model属性存在（V2版本主要使用MeloTTS）
-        self.tts_model = None
-        self._initialize_components()
-
-        print("[OpenVoice] ===============================================")
-        print("[OpenVoice] OpenVoice服务初始化完成")
-        print(f"[OpenVoice] 服务ID: {id(self)}")
-        print(f"[OpenVoice] 音色转换器状态: {'✅ 已加载' if self.tone_converter else '❌ 未加载'}")
-        print(f"[OpenVoice] 已加载说话人数量: {len(self.feature_manager.speaker_features)}")
-        print("==============================================")
-
-    @classmethod
-    def get_instance(cls):
-        """
-        获取OpenVoiceService单例实例
-
-        Returns:
-            OpenVoiceService: 服务实例
-        """
-        if cls._instance is None:
             with cls._lock:
                 if cls._instance is None:
-                    cls._instance = cls()
+                    cls._instance = super().__new__(cls)
+                    cls._instance._initialized = False
         return cls._instance
 
-    @classmethod
-    def get(cls):
+    def __init__(self, config: ServiceConfig = None):
+        if not hasattr(self, '_initialized') or not self._initialized:
+            self._config = config or ServiceConfig()
+            self._initialize_service()
+            self._initialized = True
+
+    def _initialize_service(self):
+        """初始化服务"""
+        try:
+            # 设置日志
+            self._setup_logging()
+
+            # 初始化CosyVoice核心服务
+            self.logger.info("[CosyVoiceService] 初始化语音生成服务...")
+            self._cosy_service = get_cosy_service()
+
+            self.logger.info("[CosyVoiceService] 服务初始化完成")
+            self._log_service_status()
+
+        except Exception as e:
+            self.logger.error(f"[CosyVoiceService] 服务初始化失败: {e}")
+            raise ServiceNotInitialized(f"服务初始化失败: {e}")
+
+    def _setup_logging(self):
+        """设置日志"""
+        self.logger = logging.getLogger("CosyVoiceService")
+        self.logger.setLevel(getattr(logging, self._config.log_level.upper()))
+
+        if not self.logger.handlers:
+            handler = logging.StreamHandler()
+            formatter = logging.Formatter(
+                '[%(asctime)s] [%(name)s] [%(levelname)s] %(message)s',
+                datefmt='%Y-%m-%d %H:%M:%S'
+            )
+            handler.setFormatter(formatter)
+            self.logger.addHandler(handler)
+
+    def _log_service_status(self):
+        """记录服务状态"""
+        try:
+            status = self.get_service_status()
+            self.logger.info("=" * 50)
+            self.logger.info("CosyVoice语音生成服务状态")
+            self.logger.info("=" * 50)
+
+            if status['cosyvoice_available']:
+                self.logger.info("✅ CosyVoice核心服务: 已就绪")
+                if status.get('model_info'):
+                    self.logger.info(f"   模型: {status['model_info'].get('model_dir', 'N/A')}")
+            else:
+                self.logger.warning("❌ CosyVoice核心服务: 未就绪")
+
+            self.logger.info(f"VLLM启用: {self._config.enable_vllm}")
+            self.logger.info("=" * 50)
+
+        except Exception as e:
+            self.logger.warning(f"记录服务状态失败: {e}")
+
+    def clone_voice(self, text: str, reference_audio: str,
+                   prompt_text: Optional[str] = None,
+                   output_filename: Optional[str] = None,
+                   speed: float = 1.0, language: Language = Language.CHINESE) -> VoiceGenerationResult:
         """
-        获取OpenVoiceService单例实例的简化方法
+        语音克隆主接口
+
+        Args:
+            text: 要生成的文本内容
+            reference_audio: 参考音频文件路径
+            prompt_text: 提示文本（可选）
+            output_filename: 输出文件名（可选）
+            speed: 语速控制（0.1-3.0）
+            language: 语言设置
 
         Returns:
-            OpenVoiceService: 服务实例
+            VoiceGenerationResult: 生成结果
         """
-        return cls.get_instance()
+        start_time = time.time()
+        task_id = str(uuid.uuid4())
 
-    @classmethod
-    def is_initialized(cls):
-        """
-        检查服务是否已初始化
-
-        Returns:
-            bool: 是否已初始化
-        """
-        return cls._initialized
-
-    @classmethod
-    def reset_instance(cls):
-        """
-        重置单例实例（主要用于测试）
-        注意：这会清除当前实例，下次调用get_instance会创建新实例
-        """
-        with cls._lock:
-            if cls._instance is not None:
-                # 可以在这里执行清理操作
-                cls._instance = None
-                cls._initialized = False
-
-    def _initialize_components(self):
-        """初始化所有组件"""
-        print("[OpenVoice] 开始组件初始化流程...")
-        if self.model_manager.initialize():
-            self.tone_converter = self.model_manager.tone_converter
-            print("[OpenVoice] ✅ 组件初始化完成")
-            print(f"[OpenVoice] 设备类型: {self.model_manager.device}")
-            print(f"[OpenVoice] 音色转换器: {type(self.tone_converter).__name__}")
-        else:
-            print("[OpenVoice] ❌ 模型管理器初始化失败")
-            self._fallback_to_default_state()
-
-    def _fallback_to_default_state(self):
-        """组件初始化失败时的默认状态"""
-        print("[OpenVoice] 进入默认状态（功能受限）")
-        self.tone_converter = None
-        self.tts_model = None  # 确保属性存在
-        print("[OpenVoice] ⚠️  使用默认状态，语音功能不可用")
-
-    @property
-    def device(self):
-        """获取设备类型"""
-        return self.model_manager.device
-
-    @property
-    def speaker_features(self):
-        """获取说话人特征"""
-        return self.feature_manager.speaker_features
-
-    def list_available_speakers(self):
-        """列出可用的说话人"""
-        return self.feature_manager.list_speakers()
-
-    def extract_and_save_speaker_feature(self, speaker_id, reference_audio):
-        """提取并保存说话人特征（public : 供外部函数调用）"""
-        return self.feature_manager.extract_feature(speaker_id, reference_audio, self.tone_converter)
-
-    def generate_speech(self, text, speaker_id=None):
-        """生成语音 - 统一接口（V2版本）"""
-        print("[OpenVoice] ===============================================")
-        print("[OpenVoice] 开始语音生成流程...")
-        print(f"[OpenVoice] 输入文本: '{text}'")
-        print(f"[OpenVoice] 说话人ID: {speaker_id if speaker_id else 'None (使用基础TTS)'}")
+        result = VoiceGenerationResult(
+            task_id=task_id,
+            success=False
+        )
 
         try:
+            self.logger.info(f"[CosyVoiceService] 开始语音克隆: {task_id}")
+            self.logger.info(f"  文本: {text[:50]}...")
+            self.logger.info(f"  参考音频: {reference_audio}")
+
             # 输入验证
             if not text or not text.strip():
-                print("[OpenVoice]  输入文本为空")
-                return None
+                result.error_message = "文本内容不能为空"
+                return result
+
+            if not os.path.exists(reference_audio):
+                result.error_message = f"参考音频文件不存在: {reference_audio}"
+                return result
 
             text = text.strip()
-            if len(text) > 1000:  # 假设最大文本长度
-                print("[OpenVoice]  输入文本过长，最大支持1000字符")
-                return None
+            if len(text) > 5000:
+                result.error_message = "文本长度不能超过5000字符"
+                return result
 
-            # 生成输出文件名 - 使用PathManager
-            timestamp = time.strftime("%Y%m%d_%H%M%S")
-            output_path = self.path_manager.get_output_voice_path(timestamp)
+            if speed <= 0 or speed > 3.0:
+                result.error_message = "语速必须在0-3.0范围内"
+                return result
 
-            # 确保输出目录存在 - 使用PathManager
-            self.path_manager.ensure_file_directory(output_path)
-
-            print(f"[OpenVoice] 输出文件路径: {output_path}")
-
-            if speaker_id and speaker_id in self.feature_manager.speaker_features:
-                # 使用说话人克隆（V2方式）
-                if not self.tone_converter:
-                    print("[OpenVoice]  语音克隆需要音色转换器，但转换器未初始化")
-                    return None
-
-                print(f"[OpenVoice]  使用说话人克隆模式: {speaker_id}")
-                print(f"[OpenVoice] 可用说话人: {list(self.feature_manager.speaker_features.keys())}")
-                return self._clone_voice_with_cached_feature(text, speaker_id, output_path)
-            else:
-                # 使用基础TTS（MeloTTS）
-                print("[OpenVoice] 🎤 使用基础TTS模式（MeloTTS）")
-                if speaker_id:
-                    print(f"[OpenVoice]   说话人 {speaker_id} 不存在，切换到基础TTS")
-                return self._generate_base_speech(text, output_path)
-
-        except Exception as e:
-            print(f"[OpenVoice]  语音生成异常: {type(e).__name__}: {e}")
-            import traceback
-            print(f"[OpenVoice] 错误堆栈:")
-            traceback.print_exc()
-            return None
-
-    def _clone_voice_with_cached_feature(self, text, speaker_id, output_path, base_speaker_key="ZH"):
-        """使用缓存的说话人特征进行语音克隆"""
-        temp_audio = None
-        try:
-            if not self.tone_converter:
-                return None
-
-            speaker_info = self.feature_manager.get_feature(speaker_id)
-            target_se = speaker_info['se']
-            # 确保目标特征也在正确的设备上
-            target_se = target_se.to(self.model_manager.device)
-            print(f"[OpenVoice]  目标特征设备: {target_se.device}")
-
-            # 1. 先用基础模型生成语音（使用MeloTTS）
-            temp_audio = self.path_manager.get_temp_voice_path(f"base_{speaker_id}")
-            base_speaker_path = self._generate_base_speech(text, temp_audio, base_speaker_key)
-
-            if not base_speaker_path:
-                return None
-
-            # 2. 加载基础说话人特征 - 使用PathManager
-            source_se_path = self.path_manager.get_root_begin_path("OpenVoice/checkpoints_v2/base_speakers/ses", f"{base_speaker_key.lower()}.pth")
-            print(f"[OpenVoice]  查找基础说话人特征: {source_se_path}")
-            print(f"[OpenVoice]  文件存在: {os.path.exists(source_se_path)}")
-
-            if os.path.exists(source_se_path):
-                print(f"[OpenVoice]  开始加载基础说话人特征...")
-                source_se = torch.load(source_se_path, map_location=self.model_manager.device)
-                print(f"[OpenVoice]  基础说话人特征加载成功，形状: {source_se.shape}")
-                print(f"[OpenVoice]  基础特征设备: {source_se.device}")
-            else:
-                print(f"[OpenVoice]  未找到基础说话人特征: {source_se_path}")
-                return None
-
-            # 3. 使用缓存的特征进行音色转换
-            encode_message = "@MyShell"
-            print(f"[OpenVoice]  开始音色转换...")
-            print(f"[OpenVoice]  输入音频: {temp_audio}")
-            print(f"[OpenVoice]  输出音频: {output_path}")
-            print(f"[OpenVoice]  编码消息: {encode_message}")
-            print(f"[OpenVoice]  目标特征形状: {target_se.shape}")
-            self.tone_converter.convert(
-                audio_src_path=temp_audio,
-                src_se=source_se,
-                tgt_se=target_se,
-                output_path=output_path,
-                message=encode_message
+            # 执行语音生成
+            cosy_result = self._cosy_service.clone_voice(
+                text=text,
+                reference_audio_path=reference_audio,
+                prompt_text=prompt_text,
+                output_filename=output_filename,
+                speed=speed,
+                stream=False
             )
-            
-            print(f"[OpenVoice]  音色转换完成")
-            
-            print(f"[OpenVoice] 使用V2模型和缓存特征生成语音: {speaker_id}")
-            return output_path
 
-        except Exception as e:
-            print(f"[OpenVoice] 使用缓存特征生成语音失败: {e}")
-            return None
-        finally:
-            # 4. 确保清理临时文件（异常安全）
-            if temp_audio and os.path.exists(temp_audio):
-                try:
-                    os.remove(temp_audio)
-                    print(f"[OpenVoice] 清理临时文件: {temp_audio}")
-                except Exception as cleanup_error:
-                    print(f"[OpenVoice] 清理临时文件失败: {cleanup_error}")
+            generation_time = time.time() - start_time
 
-    def _generate_base_speech(self, text, output_path, base_speaker_key="ZH"):
-        """生成基础语音（支持MeloTTS）"""
-        try:
-            # 尝试使用MeloTTS
-            if self.voice_generator.generate_with_melotts_tts(text, output_path, base_speaker_key):
-                return output_path
+            if cosy_result.is_valid:
+                result = VoiceGenerationResult(
+                    task_id=task_id,
+                    success=True,
+                    audio_path=cosy_result.audio_path,
+                    audio_metadata=cosy_result.audio_metadata,
+                    generation_time=generation_time
+                )
+
+                self.logger.info(f"[CosyVoiceService] 语音克隆成功: {cosy_result.audio_path}")
+                self.logger.info(f"  生成时长: {cosy_result.audio_metadata.duration:.2f}s")
+                self.logger.info(f"  耗时: {generation_time:.2f}s")
+
             else:
-                print("[OpenVoice] MeloTTS生成失败")
-                return None
+                result.error_message = cosy_result.error_message or "生成失败"
+                result.generation_time = generation_time
+                self.logger.error(f"[CosyVoiceService] 语音克隆失败: {result.error_message}")
+
+            return result
 
         except Exception as e:
-            print(f"[OpenVoice] 基础语音生成失败: {e}")
-            return None
+            result.error_message = str(e)
+            result.generation_time = time.time() - start_time
+            self.logger.error(f"[CosyVoiceService] 语音克隆异常: {e}")
+            return result
 
-    # 兼容性方法 - 委托给相应的组件，确保不产生递归调用
-    def initialize_model(self):
-        """初始化模型（兼容性方法）"""
-        return self._initialize_components()
+    def generate_speech(self, text: str, language: Language = Language.CHINESE,
+                       output_filename: Optional[str] = None) -> VoiceGenerationResult:
+        """
+        标准语音生成（无需参考音频）
 
-    def load_speaker_features(self):
-        """加载已保存的说话人特征（兼容性方法）"""
-        return self.feature_manager.speaker_features
+        注意：当前版本主要基于参考音频的语音克隆，此方法暂不支持
 
-    def save_speaker_feature(self, speaker_id, reference_audio, se_tensor):
-        """保存说话人特征（兼容性方法）"""
-        return self.feature_manager.save_feature(speaker_id, reference_audio, se_tensor)
+        Args:
+            text: 要生成的文本
+            language: 语言设置
+            output_filename: 输出文件名
 
-    def clone_voice_with_cached_feature(self, text, speaker_id, output_path, base_speaker_key="ZH"):
-        """使用缓存的说话人特征进行语音克隆（兼容性方法）"""
-        return self._clone_voice_with_cached_feature(text, speaker_id, output_path, base_speaker_key)
+        Returns:
+            VoiceGenerationResult: 生成结果
+        """
+        result = VoiceGenerationResult(
+            task_id=str(uuid.uuid4()),
+            success=False,
+            error_message="当前版本主要基于参考音频进行语音克隆，此功能暂不支持"
+        )
+        return result
 
-    def generate_base_speech(self, text, output_path, base_speaker_key="ZH"):
-        """生成基础语音（兼容性方法）"""
-        return self._generate_base_speech(text, output_path, base_speaker_key)
-
-    def try_melotts_tts(self, text, output_path, base_speaker_key="ZH"):
-        """尝试使用MeloTTS生成语音（兼容性方法）"""
-        return self.voice_generator.generate_with_melotts_tts(text, output_path, base_speaker_key)
-
-    def synthesize_speech(self, text, output_path, speaker="default", language="Chinese"):
-        """快速语音合成 - 兼容性方法"""
+    def get_service_status(self) -> Dict[str, Any]:
+        """获取服务状态"""
         try:
-            # 将language参数映射到MeloTTS的base_speaker_key格式
-            language_to_speaker_key = {
-                "Chinese": "ZH",
-                "English": "EN",
-                "Spanish": "ES",
-                "French": "FR",
-                "Japanese": "JP",
-                "Korean": "KR",
-                "default": "ZH"
+            cosy_status = self._cosy_service.get_comprehensive_status()
+
+            return {
+                "service": {
+                    "initialized": self._initialized,
+                    "config": {
+                        "enable_vllm": self._config.enable_vllm,
+                        "log_level": self._config.log_level
+                    }
+                },
+                "cosyvoice": cosy_status,
+                "cosyvoice_available": cosy_status.get('cosyvoice_available', False)
+            }
+        except Exception as e:
+            return {
+                "service": {
+                    "initialized": self._initialized,
+                    "error": str(e)
+                },
+                "cosyvoice_available": False
             }
 
-            base_speaker_key = language_to_speaker_key.get(language, speaker.upper() if speaker.upper() in ["ZH", "EN", "ES", "FR", "JP", "KR"] else "ZH")
+    def cleanup(self):
+        """清理服务资源"""
+        try:
+            self.logger.info("[CosyVoiceService] 开始清理服务资源...")
 
-            print(f"[OpenVoice] synthesize_speech: language={language} -> base_speaker_key={base_speaker_key}, speaker={speaker}")
+            # 清理CosyVoice服务
+            if hasattr(self, '_cosy_service'):
+                self._cosy_service.cleanup()
 
-            # 使用MeloTTS作为基础生成
-            return self._generate_base_speech(text, output_path, base_speaker_key)
+            self.logger.info("[CosyVoiceService] 服务资源清理完成")
 
         except Exception as e:
-            print(f"[OpenVoice] 语音合成失败: {e}")
-            return None
+            self.logger.error(f"[CosyVoiceService] 服务清理失败: {e}")
 
-    def ensure_directories(self):
-        """确保必要目录存在（兼容性方法）"""
-        return self.model_manager._ensure_directories()
+    def __enter__(self):
+        """上下文管理器入口"""
+        return self
 
-    def check_models_exist(self):
-        """检查模型文件是否存在（兼容性方法）"""
-        return self.model_manager._check_models_exist()
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        """上下文管理器出口"""
+        self.cleanup()
 
-    def download_openvoice_models(self):
-        """下载OpenVoice V2预训练模型（兼容性方法）"""
-        return self.model_manager._download_models()
+    def __del__(self):
+        """析构函数"""
+        try:
+            self.cleanup()
+        except:
+            pass
 
 
-class DeviceUtils:
-    """设备工具类，提供设备相关的实用方法"""
+# ==================== 便捷函数 ====================
 
-    @staticmethod
-    def _get_optimal_device():
-        """智能设备选择"""
-        if torch.cuda.is_available():
-            # 检查GPU内存
-            if torch.cuda.get_device_properties(0).total_memory > 4e9:  # 4GB+
-                return "cuda"
-        elif hasattr(torch.backends, 'mps') and torch.backends.mps.is_available():
-            # Apple Silicon支持
-            return "mps"
-        else:
-            return "cpu"
+def get_voice_service(config: ServiceConfig = None) -> CosyVoiceService:
+    """获取语音服务实例"""
+    return CosyVoiceService(config)
+
+
+def quick_clone_voice(text: str, reference_audio: str,
+                     output_filename: Optional[str] = None,
+                     enable_vllm: bool = False) -> VoiceGenerationResult:
+    """
+    快速语音克隆
+
+    Args:
+        text: 要生成的文本
+        reference_audio: 参考音频路径
+        output_filename: 输出文件名（可选）
+        enable_vllm: 是否启用VLLM加速
+
+    Returns:
+        VoiceGenerationResult: 生成结果
+    """
+    config = ServiceConfig(enable_vllm=enable_vllm)
+    service = get_voice_service(config)
+
+    return service.clone_voice(
+        text=text,
+        reference_audio=reference_audio,
+        output_filename=output_filename
+    )
+
+
+def clone_voice_with_vllm(text: str, reference_audio: str,
+                         output_filename: Optional[str] = None) -> VoiceGenerationResult:
+    """
+    使用VLLM加速的语音克隆
+
+    Args:
+        text: 要生成的文本
+        reference_audio: 参考音频路径
+        output_filename: 输出文件名（可选）
+
+    Returns:
+        VoiceGenerationResult: 生成结果
+    """
+    return quick_clone_voice(text, reference_audio, output_filename, enable_vllm=True)
+
+
+# ==================== 示例和测试代码 ====================
+
+if __name__ == "__main__":
+    # 设置日志
+    logging.basicConfig(level=logging.INFO)
+
+    def test_basic_functionality():
+        """测试基本功能"""
+        print("=" * 60)
+        print("CosyVoice语音生成服务测试（简化版）")
+        print("=" * 60)
+
+        try:
+            # 创建服务实例
+            config = ServiceConfig(
+                enable_vllm=True,
+                log_level="INFO"
+            )
+
+            with get_voice_service(config) as service:
+                # 测试服务状态
+                status = service.get_service_status()
+                print(f"服务状态: {status['service']['initialized']}")
+                print(f"VLLM启用: {status['service']['config']['enable_vllm']}")
+                print(f"CosyVoice可用: {status['cosyvoice_available']}")
+
+                if status['cosyvoice_available']:
+                    print("\n✅ CosyVoice服务可用，开始测试...")
+
+                    # 这里需要实际的音频文件来测试
+                    print("\n📝 测试语音克隆（需要参考音频文件）:")
+                    print("result = service.clone_voice(")
+                    print('    text="你好，这是测试语音。",')
+                    print('    reference_audio="path/to/reference.wav"')
+                    print(")")
+                    print("if result.is_success:")
+                    print("    print(f'克隆成功: {result.audio_path}')")
+                    print("else:")
+                    print("    print(f'克隆失败: {result.error_message}')")
+
+                else:
+                    print("\n❌ CosyVoice服务不可用，请检查模型和依赖")
+
+        except Exception as e:
+            print(f"测试失败: {e}")
+            import traceback
+            traceback.print_exc()
+
+    def test_convenience_functions():
+        """测试便捷函数"""
+        print("\n" + "=" * 60)
+        print("便捷函数测试")
+        print("=" * 60)
+
+        try:
+            # 测试便捷函数导入
+            from voice_generator import quick_clone_voice, clone_voice_with_vllm
+
+            print("📦 便捷函数导入成功")
+
+            print("\n📝 快速克隆示例:")
+            print("result = quick_clone_voice('你好世界', 'reference.wav')")
+
+            print("\n📝 VLLM加速克隆示例:")
+            print("result = clone_voice_with_vllm('你好世界', 'reference.wav')")
+
+            print("✅ 便捷函数测试通过")
+
+        except Exception as e:
+            print(f"❌ 便捷函数测试失败: {e}")
+
+    # 运行测试
+    test_basic_functionality()
+    test_convenience_functions()
+
+    print("\n" + "=" * 60)
+    print("测试完成")
+    print("=" * 60)
+    print("\n📖 使用示例:")
+    print("from backend.voice_generator import get_voice_service, quick_clone_voice")
+    print()
+    print("# 简单克隆")
+    print("result = quick_clone_voice('你好世界', 'reference.wav')")
+    print()
+    print("# VLLM加速克隆")
+    print("result = clone_voice_with_vllm('你好世界', 'reference.wav')")
+    print()
+    print("# 使用服务实例")
+    print("service = get_voice_service()")
+    print("result = service.clone_voice('测试文本', 'ref.wav')")
+    print("if result.is_success:")
+    print("    print(f'生成成功: {result.audio_path}')")

@@ -210,10 +210,10 @@
                             </div>
                             
                                 <div>
-                                    <label class="indicator-label">克隆音频编号</label>
+                                    <label class="indicator-label">参考音频</label>
                                     <div style="display: flex; gap: var(--space-2); align-items: stretch;">
-                                        <select class="neon-input" name="ref_audio_id" id="refAudioId" style="flex: 1;">
-                                            <option value="">请选择克隆音频</option>
+                                        <select class="neon-input" name="ref_audio" id="refAudioSelect" style="flex: 1;">
+                                            <option value="">请选择参考音频</option>
                                             <!-- 选项将通过JavaScript从后端加载 -->
                                         </select>
                                         <button type="button" class="neon-btn neon-btn-sm" id="refreshAudioBtn" title="刷新音频列表">
@@ -221,7 +221,7 @@
                                         </button>
                                     </div>
                                     <small style="color: var(--text-secondary); font-size: 0.875rem; margin-top: var(--space-1); display: block;">
-                                        选择已克隆的音频编号
+                                        选择已上传的参考音频文件
                                     </small>
                                 </div>
                         </div>
@@ -284,7 +284,6 @@
         }
 
         // 视频预览逻辑
-        const refAudioId = document.getElementById('refAudioId');
         const videoPreview = document.getElementById('videoPreview');
         const modelParamSelect = document.getElementById('modelParamSelect');
         const modelNameSelect = document.querySelector('select[name="model_name"]');
@@ -412,50 +411,67 @@
             }
         }
 
-        // 初始化音频选择框
-        async function initializeAudioSelects() {
+        // 加载参考音频列表
+        async function loadReferenceAudios() {
             try {
-                // 初始化参考音频选择框 - 强制刷新以获取最新数据
-                const refAudioSelect = document.getElementById('refAudioId');
-                if (refAudioSelect) {
-                    await window.AudioUtils.fillAudioSelect('#refAudioId', '请选择克隆音频', '', true);
+                const response = await fetch('/api/reference-audios');
+                const data = await response.json();
+
+                if (data.status === 'success') {
+                    const select = document.getElementById('refAudioSelect');
+                    select.innerHTML = '<option value="">请选择参考音频</option>';
+
+                    data.files.forEach(file => {
+                        const option = document.createElement('option');
+                        option.value = file.relative_path;
+                        option.textContent = `${file.filename} (${file.size_mb}MB)`;
+                        option.title = `创建时间: ${file.created_time}\n大小: ${file.size_mb}MB`;
+                        select.appendChild(option);
+                    });
+
+                    console.log(`[UI] 加载了 ${data.files.length} 个参考音频`);
+                } else {
+                    console.error('加载参考音频列表失败:', data.message);
                 }
             } catch (error) {
-                console.error('初始化音频选择框失败:', error);
+                console.error('加载参考音频列表出错:', error);
             }
         }
 
-        // 强制刷新音频数据
+        // 刷新参考音频数据
         async function refreshAudioData() {
             try {
-                console.log('正在刷新音频数据...');
-                await window.AudioUtils.refreshAllAudioSelects();
-                console.log('音频数据刷新完成');
-
-                // 显示刷新成功提示
+                console.log('正在刷新参考音频数据...');
                 const btn = document.getElementById('refreshAudioBtn');
                 if (btn) {
-                    const originalText = btn.innerHTML;
-                    btn.innerHTML = ' 已刷新';
+                    btn.disabled = true;
+                    btn.innerHTML = '刷新中...';
+                }
+
+                await loadReferenceAudios();
+
+                if (btn) {
+                    btn.innerHTML = '已刷新';
                     btn.style.color = 'var(--neon-green)';
 
                     setTimeout(() => {
-                        btn.innerHTML = originalText;
+                        btn.disabled = false;
+                        btn.innerHTML = '刷新';
                         btn.style.color = '';
                     }, 2000);
                 }
+                console.log('参考音频数据刷新完成');
             } catch (error) {
-                console.error('刷新音频数据失败:', error);
+                console.error('刷新参考音频数据失败:', error);
 
-                // 显示刷新失败提示
                 const btn = document.getElementById('refreshAudioBtn');
                 if (btn) {
-                    const originalText = btn.innerHTML;
-                    btn.innerHTML = ' 刷新失败';
+                    btn.innerHTML = '刷新失败';
                     btn.style.color = 'var(--neon-red)';
 
                     setTimeout(() => {
-                        btn.innerHTML = originalText;
+                        btn.disabled = false;
+                        btn.innerHTML = '刷新';
                         btn.style.color = '';
                     }, 2000);
                 }
@@ -473,8 +489,8 @@
 
         // 页面加载时初始化
         document.addEventListener('DOMContentLoaded', async function() {
-            // 初始化音频选择框
-            await initializeAudioSelects();
+            // 初始化参考音频选择框
+            await loadReferenceAudios();
 
             // 初始化模型选择框
             await loadAvailableModels();
