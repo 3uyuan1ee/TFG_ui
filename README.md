@@ -1,40 +1,113 @@
-# 说话人脸生成对话系统
+![Illustrator.png](resource/Illustrator.png)
 
-## 系统流程
+# EchOfU: Multimodal AI Voice Interaction and Virtual Human Generation System
 
+**EchOfU** is a comprehensive intelligent voice dialogue system integrating advanced AI technologies including zero-shot voice cloning, audio-driven video synthesis, and human-computer interaction.
+
+## Overview
+
+EchOfU combines state-of-the-art models in speech synthesis and neural radiance fields to create a complete pipeline for virtual avatar generation:
+
+- **CosyVoice3** ([FunAudioLLM](https://github.com/FunAudioLLM/CosyVoice)): Zero-shot voice cloning with multi-language support
+- **ER-NeRF** ([ICCV 2023](https://arxiv.org/abs/2305.07078)): Audio-driven talking head synthesis using Efficient Region-Aware Neural Radiance Fields
+- **SyncTalk**: Alternative video generation pipeline with real-time inference
+
+## Quick Start
+
+📖 **[Get started with our Quick Start Guide →](EchOfU/docs/快速开始.md)**
+
+Complete guide including installation, configuration, and troubleshooting.
+
+---
+
+## System Architecture
+
+<img src="resource/System_architecture.png" alt="System Architecture Diagram"/>
+
+The system adopts a layered architecture:
+- **Presentation Layer**: Flask-based web interface with modular frontend components
+- **Business Logic Layer**: Voice generation, video synthesis, model training, chat engine
+- **AI Model Layer**: CosyVoice3, ER-NeRF, SyncTalk, GLM-4 LLM integration
+- **Infrastructure Layer**: Docker containerization, GPU acceleration, audio processing
+
+---
+
+## Key Features
+
+### 1. Zero-Shot Voice Cloning
+- **Model**: Fun-CosyVoice3-0.5B-2512
+- **Capability**: Clone arbitrary voice from 3-5 seconds of reference audio
+- **Languages**: 9 languages (Chinese, English, Japanese, Korean, etc.)
+- **Optimization**: VLLM acceleration for 4x inference speedup
+
+### 2. Neural Video Generation
+- **ER-NeRF**: High-fidelity audio-driven video synthesis with tri-plane encoding and audio attention mechanism
+- **Training Pipeline**: Three-stage training (Head → Lips → Torso, ~5-8 hours on RTX 4090)
+- **Inference**: DeepSpeech feature extraction → NeRF rendering with ray marching
+
+### 3. Model Training
+- Automated training workflow with Docker containerization
+- Support for both ER-NeRF and SyncTalk models
+- Comprehensive evaluation metrics (PSNR, LPIPS, LMD)
+
+### 4. Conversational AI
+- Full dialogue pipeline: ASR → LLM → TTS → Video Generation
+- Integration with Zhipu AI GLM-4-Plus
+- Real-time audio response and avatar synchronization
+
+---
+
+## Technical Specifications
+
+### CosyVoice3 Architecture
 ```
-[用户点击“生成视频”按钮]
-        ↓
-[前端 JS 捕获表单数据并用 fetch 发送 POST 请求]
-        ↓
-[Flask 路由接收 request.form]
-        ↓
-[调用 backend/video_generator.py 中的函数 generate_video()]
-        ↓
-[后端函数返回生成视频的路径]
-        ↓
-[Flask 把路径以 JSON 形式返回给前端]
-        ↓
-[前端 JS 接收到路径 → 替换 <video> 标签的 src → 自动播放视频]
+Text Input → Frontend → LLM (Qwen-based) → Flow Matching (DiT) → HiFi-GAN → Audio Output
+                                    ↓
+                              Speaker Embedding
+                              (from Reference Audio)
 ```
 
-## 核心模块
-- **训练后端**: `./backend/model_trainer.py` - 负责调用模型执行训练任务
-- **推理后端**: `./backend/video_generator.py` - 负责调用模型执行视频生成推理
+### ER-NeRF Pipeline
+```
+Audio → DeepSpeech Features → AudioNet → NeRF Network → Ray Marching → Video Output
+                                              ↓
+                                [XY, YZ, XZ] Tri-plane Encoding
+                                              ↓
+                                Density & Color Networks
+```
 
-## Demo 使用方法
+---
 
-1. 安装依赖：
-   ```bash
-   pip install flask
-   ```
+## Documentation
 
-2. 启动应用：
-   ```bash
-   python app.py
-   ```
+- **[Quick Start Guide](EchOfU/docs/快速开始.md)** - Installation, configuration, and troubleshooting
+- **[Complete Configuration](EchOfU/docs/配置文档.md)** - CosyVoice and ER-NeRF detailed setup
+- **[ER-NeRF Deployment](EchOfU/docs/docker/ERNERF_DEPLOYMENT.md)** - Docker deployment steps
+- **[Docker Usage](EchOfU/docs/docker/ERNERF_DOCKER.md)** - Docker command reference
 
-3. 访问应用：
-   打开 http://127.0.0.1:5000
+---
 
-4. 点击探索功能
+## Citation
+
+If you find this project useful, please consider citing:
+
+```bibtex
+@software{echOfU2025,
+  title={EchOfU: Multimodal AI Voice Interaction System},
+  author={Li, Muyuan and Long, Shangkun and Li, Yijie and Zhao, Xialu and Li, Kexin and Wang, Yifan and Pei, Tao},
+  year={2025},
+  month={December},
+  url={https://github.com/3uyuan1ee/TFG_ui}
+}
+```
+
+## License
+
+This project is licensed under the Apache License 2.0 - see the LICENSE file for details.
+
+## Acknowledgments
+
+- [CosyVoice](https://github.com/FunAudioLLM/CosyVoice) by FunAudioLLM, Alibaba Group
+- [ER-NeRF](https://github.com/Fictionarry/ER-NeRF) - ICCV 2023
+- [SyncTalk](https://github.com/Fictionarry/SyncTalk)
+- [Matcha-TTS](https://github.com/shashankTY/Matcha-TTS)
