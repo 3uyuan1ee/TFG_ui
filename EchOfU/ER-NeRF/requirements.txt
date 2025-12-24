@@ -18,10 +18,10 @@ pytorch3d==0.7.2
 Requests==2.32.5
 resampy==0.4.3
 rich==14.2.0
-scikit_learn==1.8.0
+scikit-learn==1.8.0
 scipy==1.16.3
 setuptools==80.9.0
-skimage==0.0
+scikit-image=0.25.2
 soundfile==0.13.1
 tensorboardx==2.6.4
 tensorflow==2.20.0
@@ -31,5 +31,7 @@ torchvision==0.13.1+cu113
 tqdm==4.67.1
 transformers==4.26.1
 trimesh==4.10.1
+
+ninja==1.13.0
 
 #pytorch最好用conda install pytorch==1.12.1 torchvision==0.13.1 cudatoolkit=11.3 -c pytorch安装
