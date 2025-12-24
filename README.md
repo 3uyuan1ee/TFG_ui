@@ -1,4 +1,4 @@
-![Illustrator.png](resource/Illustrator.png)
+![Illustrator.png](EchOfU/resource/Illustrator.png)
 
 # EchOfU: Multimodal AI Voice Interaction and Virtual Human Generation System
 
@@ -22,7 +22,7 @@ Complete guide including installation, configuration, and troubleshooting.
 
 ## System Architecture
 
-<img src="resource/System_architecture.png" alt="System Architecture Diagram"/>
+<img src="EchOfU/resource/System_architecture.png" alt="System Architecture Diagram"/>
 
 The system adopts a layered architecture:
 - **Presentation Layer**: Flask-based web interface with modular frontend components
