@@ -30,6 +30,12 @@ def train_model(data):
     # 路径配置
     ref_video_path = data['ref_video']
     model_choice = data['model_choice']
+
+    # 标准化模型名称（处理不同写法：ER_NeRF, ER NeRF, ER-NeRF）
+    if model_choice in ['ER_NeRF', 'ER NeRF']:
+        model_choice = 'ER-NeRF'
+    elif model_choice == 'SyncTalk':
+        model_choice = 'SyncTalk'
     
     # 获取任务ID (优先使用 speaker_id，否则使用文件名)
     if data.get('speaker_id'):
