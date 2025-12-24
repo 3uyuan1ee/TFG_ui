@@ -89,27 +89,6 @@ def video_generation():
             # 调用后端视频生成模块
             video_path = generate_video(data)
 
-            # ==================== 历史记录保存 ====================
-            history_entry = {
-                'timestamp': datetime.now().isoformat(),
-                'model': data['model_name'],
-                'params': data,
-                'output': video_path
-            }
-
-            # 保存到历史记录文件
-            history_file = 'EchOfU/static/history/video_generation.json'
-            if os.path.exists(history_file):
-                with open(history_file, 'r') as f:
-                    history = json.load(f)
-            else:
-                history = []
-
-            history.append(history_entry)
-
-            with open(history_file, 'w') as f:
-                json.dump(history, f, indent=2)
-
             return jsonify({
                 'status': 'success',
                 'video_path': video_path,
@@ -438,22 +417,6 @@ def system_status():
             'status': 'error',
             'message': str(e)
         }), 500
-
-@app.route('/api/history/<history_type>')
-def get_history(history_type):
-    """历史记录查询API - 获取指定类型的操作历史记录"""
-
-    history_file = f'static/history/{history_type}.json'
-
-    if os.path.exists(history_file):
-        with open(history_file, 'r') as f:
-            try:
-                data = json.load(f)
-                return jsonify(data)
-            except:
-                return jsonify([])
-    else:
-        return jsonify([])
 
 @app.route('/video/<path:filename>')
 def serve_video(filename):
