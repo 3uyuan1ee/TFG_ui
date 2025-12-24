@@ -32,4 +32,6 @@ tqdm==4.67.1
 transformers==4.26.1
 trimesh==4.10.1
 
+ninja==1.13.0
+
 #pytorch最好用conda install pytorch==1.12.1 torchvision==0.13.1 cudatoolkit=11.3 -c pytorch安装
