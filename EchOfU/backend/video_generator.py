@@ -100,6 +100,11 @@ def generate_video(data):
     ref_audio_path = data.get('ref_audio') # 前端传入的参考音频路径
     text = data.get('target_text')         # 要生成的文本 (可选)
 
+    # 标准化模型名称（处理不同写法：ER_NeRF, ER NeRF, ER-NeRF）
+    model_name = data.get('model_name', 'SyncTalk')
+    if model_name in ['ER_NeRF', 'ER NeRF']:
+        model_name = 'ER-NeRF'
+
     # 当前处理的音频路径 (初始为参考音频)
     current_audio_path = ref_audio_path
 
@@ -180,12 +185,12 @@ def generate_video(data):
 
    
     # 4. 视频生成模型推理 (SyncTalk / ER-NeRF)
- 
+
     if not current_audio_path or not os.path.exists(current_audio_path):
         print("[backend.video_generator] 错误: 没有有效的音频输入，无法生成视频")
         return pm.get_res_video_path("error.mp4")
 
-    if data['model_name'] == "SyncTalk":
+    if model_name == "SyncTalk":
         try:
             print("[backend.video_generator] 开始 SyncTalk 推理...")
             # 构建 SyncTalk 推理命令
@@ -240,7 +245,7 @@ def generate_video(data):
             print(f"[backend.video_generator] SyncTalk 执行异常: {e}")
             return pm.get_res_video_path("error.mp4")
 
-    elif data['model_name'] == "ER-NeRF":
+    elif model_name == "ER-NeRF":
         try:
             print("[backend.video_generator] 开始 ER-NeRF 推理...")
             print(f"[backend.video_generator] 使用模式: {'Docker' if USE_DOCKER_FOR_ERNERF else '直接调用'}")
